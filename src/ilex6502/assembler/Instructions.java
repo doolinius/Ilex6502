@@ -348,7 +348,7 @@ public class Instructions {
     private static void addOp(String name, String code, AddressMode addressMode) {
         Instruction c = codes.get(name);
         //byte b = (byte) code;
-        if (c == null){
+        if (c == null){ // instruction is not yet in the codes map
             //System.out.println("adding new opcode " + name);
             Instruction newCode = new Instruction(name, code, addressMode);
             codes.put(name, newCode);

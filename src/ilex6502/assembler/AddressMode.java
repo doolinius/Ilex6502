@@ -1,6 +1,8 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * AddressMode is an enum describing addressing modes for the MOS 6502
+ * It consists of an integer id, a regular expression for matching 
+ * modes during parsing and the number of bytes an instruction of that mode
+ * requires.
  */
 package ilex6502.assembler;
 

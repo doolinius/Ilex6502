@@ -6,6 +6,7 @@ package ilex6502;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.Insets;
 import javax.swing.BorderFactory;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
@@ -17,11 +18,12 @@ import javax.swing.border.TitledBorder;
  */
 public class EmuScreen extends JPanel{
     private JTextArea screen;
-    
+    private final int MARGIN_SIZE = 30;
     public EmuScreen(){
-        screen = new JTextArea();
+        screen = new JTextArea(40,25);
         screen.setWrapStyleWord(false);
         screen.setLineWrap(true);
+        screen.setMargin( new Insets(MARGIN_SIZE,MARGIN_SIZE,MARGIN_SIZE,MARGIN_SIZE) );// 
         Dimension screenSize = new Dimension(975,615);
         screen.setSize(screenSize);
         
