@@ -1,4 +1,8 @@
-
+/*
+    ASMTextPane - A customized text pane for editing 6502 Assembly
+    allows for syntax highlighting and indentation as well as
+    logging
+*/
 package ilex6502.asmeditorview;
 
 import java.awt.event.KeyEvent;

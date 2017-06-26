@@ -9,9 +9,9 @@ package ilex6502.assembler;
  * @author jdoolin
  */
 public enum SymType {
-    LABEL,
-    VARIABLE,
-    OPERAND,
-    UNDEFINED,
+    LABEL,      // code label
+    VARIABLE,   // label for memory location
+    OPERAND,    // label of memory location or code
+    UNDEFINED,  // not sure why I have this
     MTDF // multiply defined
 }

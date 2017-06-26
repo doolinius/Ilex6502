@@ -274,6 +274,7 @@ public class Instructions {
         addOp("SBC", "FD", AddressMode.ABSOLUTE_X);
         addOp("INC", "FE", AddressMode.ABSOLUTE_X);
         addOp("ISB", "FF", AddressMode.ABSOLUTE_X);
+        System.out.println("Number of total instructions:"+codes.size());
     }
     
     public boolean isJumpOrBranch(String operator){
@@ -301,6 +302,8 @@ public class Instructions {
                 operand.trim().matches("^[a-zA-Z]\\w+&"));
     }
     
+    // Uses regex matching to determine the addressing mode based on the
+    // operand of the instruction
     public AddressMode getModeByOperand(String operand) throws Exception{
         AddressMode m = null;
         for (AddressMode mode : AddressMode.values()) {
@@ -316,9 +319,16 @@ public class Instructions {
         }
     }
     
+    // Gets the address mode being used for an instruction
+    // First it gets the mode according to a regex pattern of the operand
+    // Then it makes a check to see if it's RELATIVE Instead of ABSOLUTE
+    // Then checks to see if it was a valid mode at all
     public AddressMode getMode(String operator, String operand) throws Exception{
         AddressMode m = getModeByOperand(operand);
         Instruction oc = codes.get(operator);
+        
+        // RELATIVE Addressing mode looks identical to ABSOLUTE
+        // But is only applicable to Branch operations.
         if (m == AddressMode.ABSOLUTE && validBranchOps.contains(operator)){
                 m = AddressMode.RELATIVE;
             }
@@ -330,6 +340,7 @@ public class Instructions {
         }
     }
     
+    // Returns the size in bytes of the instruction
     public int instructionSize(String op, String arg){
         try{
             Instruction c = getOp(op);
@@ -345,6 +356,9 @@ public class Instructions {
         return(-1);
     }
 
+    // Adds a new opcode to the big HashMap
+    // Requires the name (mnemonic, such as LDA), the hex code itself as a String,
+    // and the AddressMode
     private static void addOp(String name, String code, AddressMode addressMode) {
         Instruction c = codes.get(name);
         //byte b = (byte) code;
@@ -358,6 +372,9 @@ public class Instructions {
         }
     }
     
+    // Same as the other addOp but has an additional argument
+    // This is the size of the instruction.
+    // I needed this but I don't remember why.  FIND OUT.
     private static void addOp(String name, String code, AddressMode addressMode, int size) {
         Instruction c = codes.get(name);
         //byte b = (byte) code;
@@ -371,6 +388,7 @@ public class Instructions {
         }
     }
 
+    // Get's an operator by name/mnemonic from the HashMap
     public Instruction getOp(String name) throws Exception {
         Instruction c = codes.get(name);
         if (c == null){

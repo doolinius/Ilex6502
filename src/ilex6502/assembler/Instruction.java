@@ -1,6 +1,10 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * The Instructor class represents a single assembly instruction
+ * It has three parts:
+ * -name - the instruction mnemonic
+ * -opCodes - an array of possible opcode (hex) strings.  
+ *      since there are 14 possible address modes, the array is of size 14.
+ * -size - the size of the instruction in bytes
  */
 package ilex6502.assembler;
 
@@ -10,9 +14,12 @@ package ilex6502.assembler;
  */
 public class Instruction {
     
+    // get the number of possible addressing modes
+    private final int NUM_MODES = AddressMode.values().length;
+    
     private String name;
     //private byte[] opCodes = new byte[13];
-    private String[] opCodes = new String[13];
+    private String[] opCodes = new String[NUM_MODES];
     private int size;
     
     /*
@@ -30,9 +37,9 @@ public class Instruction {
      */
     public Instruction(String n, String code, AddressMode addressMode){
         name = n;
+        // initialize array to all null values
         for (int i=0; i<13; i++){
-            opCodes[i] = null;// 0x8B is an unstable opcode on the 6502
-            // so i'm using it as my "doesn't exist" value
+            opCodes[i] = null;
         }
         opCodes[addressMode.id()] = code;
         size = 0;
@@ -41,9 +48,9 @@ public class Instruction {
     
     public Instruction(String n, String code, AddressMode addressMode, int size){
         name = n;
+        // initialize array to all null values
         for (int i=0; i<13; i++){
-            opCodes[i] = null;// 0x8B is an unstable opcode on the 6502
-            // so i'm using it as my "doesn't exist" value
+            opCodes[i] = null;
         }
         opCodes[addressMode.id()] = code;
         this.size = size;
@@ -54,6 +61,9 @@ public class Instruction {
         return(opCodes[mode.id()] != null);
     }
     
+    // Adds a new opCode to the array
+    // Because the same mnemonic can have multiple opCodes for different
+    // Addressing modes
     public void addCode(String code, AddressMode addressMode){
         //System.out.println("Mode: " + addressMode.name() + " " + addressMode.ordinal());
         getOpCodes()[addressMode.id()] = code;
