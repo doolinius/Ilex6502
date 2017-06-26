@@ -31,13 +31,13 @@ public class Assembler {
     private final int INVALID_LINE = 4;
     private final int VARIABLE = 5;
 
-    private short lc = 0;
+    private short lc = 0; // line counter
     private short lineNum = 0;
     private HashMap<String, Symbol> symbolTable = new HashMap<String, Symbol>();
     private Instructions instructions = new Instructions();
-    private ArrayList<SourceLine> intermediate = new ArrayList<SourceLine>();
+    private ArrayList<SourceLine> intermediateSourceLines = new ArrayList<SourceLine>();
     
-    private List<String> directives = Arrays.asList("ORG");
+    private List<String> asmDirectives = Arrays.asList("ORG");
 
     /*
     public void main(String[] args) throws IOException {
@@ -76,6 +76,7 @@ public class Assembler {
     public Assembler() {
     }
     
+    // Just strip any comments from any source line
     public String stripComments(String str){
         if (str.contains(";")){
             return(str.substring(0,str.indexOf(';')));
@@ -84,6 +85,7 @@ public class Assembler {
         }
     }
     
+    // uses regex to determine if entire line is a comment
     public boolean isCommentLine(String line){
         if(line.matches("^\\w*;.*")){
             System.out.println("COMMENT?");
@@ -91,22 +93,27 @@ public class Assembler {
         return(line.matches("^\\w*;.*"));
     }
     
+    // uses regex to determine if any source line is a variable definition
     public boolean isVariableLine(String line){
         return(line.matches("^[a-zA-Z]\\w+(\\s+)?=(\\s+)?#?(\\d{1,4}|\\$(\\d|[a-fA-F])+|%(0|1){8})\\s*$"));
     }
     
+    // uses regex to determine if any source a line is a label
     public boolean isLabelLine(String line){
         return(line.matches("^[a-zA-Z]\\w+:\\s*$"));
     }
     
+    // uses regex to determine if a source line is an instruction
     public boolean isInstructionLine(String line){
         return(line.matches("^\\s+[a-zA-Z]{3}.*"));
     }
     
+    // uses regex to determine if a source line is an ASM directive
     public boolean isDirective(String line){
-        return(directives.contains(line.trim().split("\\s+")[0]));
+        return(asmDirectives.contains(line.trim().split("\\s+")[0]));
     }
     
+    // checks to see if a label is a valid identifier
     public boolean isValidLabel(String line){
         // must take into account Accumulator addressing mode
         // and not confuse it with a label
@@ -130,6 +137,10 @@ public class Assembler {
         }
     }
     
+    // Adds a new variable to the symbol table if it doesn't exist
+    // changes the type to MTDF (Multiply defined) if it does
+    // Requires the identifier (name), numeric value, symbol type and 
+    // line number
     public void addVariable(String name, String value, SymType type, int lineNumber){
         Symbol s = symbolTable.get(name);
         if (s == null){
@@ -140,6 +151,8 @@ public class Assembler {
         }
     }
     
+    // Adds a new source line label to the symbol table if it doesn't exist
+    // changes the type to MTDF (multiply defined) if it does
     public void addLabel(String name, int loc, SymType type,int lineNumber, int size){
         Symbol s = symbolTable.get(name);
         if (s == null){
@@ -150,6 +163,8 @@ public class Assembler {
         }
     }
     
+    // Checks a source line and returns the line type
+    // Returns INVALID_LINE if it is not a valid ASM source line
     public int lineType(String line){
         if (isCommentLine(line)){
             return(COMMENT);
@@ -164,6 +179,7 @@ public class Assembler {
         }
     }
     
+    // Pass 1 of 2 for the assembly of the code
     public void assembleP1(File file) throws Exception{
         try{ 
             BufferedReader br = new BufferedReader(new FileReader(file));
@@ -222,6 +238,8 @@ public class Assembler {
         //return(noErrorsDetected);
     }
     
+    // Converts a string of hexadecimal values into the corresponding
+    // byte array
     public byte[] hexStringToByteArray(String s) {
     int len = s.length();
     byte[] data = new byte[len / 2];
@@ -232,10 +250,10 @@ public class Assembler {
     return data;
 }
     
-    // FINISH THIS
+    // Pass 2 of 2 for the assembly of the code
     public byte[] assembleP2() throws Exception{
         StringBuilder outStr = new StringBuilder();
-        for (SourceLine line: intermediate){
+        for (SourceLine line: intermediateSourceLines){
             System.out.println("Pass2, assembling instruction " + line.getOperator() + " " + line.getOperand() + " " +  line.getMode().toString());
             outStr.append(p2ProcessInstruction(line));
         }
@@ -245,6 +263,7 @@ public class Assembler {
         return(output);
     }
     
+    // Prints the current symbol table
     public void printSymTab(){
         for (String key: symbolTable.keySet()){
             System.out.println("Symbol: " + key);
@@ -253,14 +272,18 @@ public class Assembler {
         }
     }
     
+    // Prints all intermediate source lines
     public void printIntermediate(){
         System.out.println("INTERMEDIATE DATA");
-        for (SourceLine line: intermediate){
+        for (SourceLine line: intermediateSourceLines){
             System.out.println(line.toString());
         }
         System.out.println("END INTERMEDIATE DATA");
     }
     
+    // Updates the value of a label if it was previously undefined
+    // This is used in Pass 2 to resolve uses of a label before
+    // the label is defined
     public void updateLabel(String label,int loc){
         Symbol s = symbolTable.get(label);
         if (s.getType() == SymType.UNDEFINED){
@@ -332,6 +355,7 @@ public class Assembler {
         return(oc + operand);
     }
     
+    // Converts numeric data to hexidecimal string data
     public String num2hex(String operand, int size) {
         String hex;
         String num = operand.charAt(0) == '#' ? operand.substring(1) :  operand;
@@ -357,12 +381,13 @@ public class Assembler {
         return(hex);
     }
     
+    // Adds a new source line to the Intermediate file 
     public void addSourceLine(String operator, String operand, AddressMode mode, int lc){
         //System.out.println("adding source line for " + operator + "," + operand + "," + mode.toString());
         if (mode == AddressMode.ACCUMULATOR){
             operand = "";
         }
-        intermediate.add(new SourceLine(operator,operand,mode,lc));
+        intermediateSourceLines.add(new SourceLine(operator,operand,mode,lc));
     }
     
     public int p1ProcessInstruction(String line) throws Exception {
@@ -428,11 +453,11 @@ public class Assembler {
     
     private void reset(){
         symbolTable.clear();
-        intermediate.clear();
+        intermediateSourceLines.clear();
         
     }
     
-    // return boolean instead of void?
+    // Takes a .asm file parameter and runs both passes of the assembler
     public File assemble(File file) throws Exception{
         byte[] binaryData;
         reset();

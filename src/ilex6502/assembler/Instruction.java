@@ -17,10 +17,10 @@ public class Instruction {
     // get the number of possible addressing modes
     private final int NUM_MODES = AddressMode.values().length;
     
-    private String name;
+    private String name; // name/mnemonic of the instruction
     //private byte[] opCodes = new byte[13];
     private String[] opCodes = new String[NUM_MODES];
-    private int size;
+    private int size;    // size in bytes
     
     /*
     public Instruction(String n, byte code, AddressMode addressMode){
@@ -57,6 +57,8 @@ public class Instruction {
         
     }
     
+    // Checks to see if a particlar AddressMode is valid for
+    // a given Instruction
     public boolean isValidMode(AddressMode mode){
         return(opCodes[mode.id()] != null);
     }

@@ -117,6 +117,13 @@ public class Emulator {
         return(ram[bytesToAddr(low,high)+yRegister]);
     }
     
+    // ADd with Carry instruction
+    // Addes the operand to the accumulator and stores the result
+    // back to the accumulator
+    // Modifies carryFlag (1 if carry was needed)
+    //          zeroFlag if result was zero
+    //          signFlag if sign bit was set
+    //          overFlowFlag if addition caused overflow
     private void ADC(byte b){
         // get temporary result and check for carry
         short x = (short)(carryFlag + accumulator + byteToUnsigned(b));
@@ -128,6 +135,12 @@ public class Emulator {
         overflowFlag = (accumulator & 0x40) >> 6;
     }
     
+    // Arithmetic Shift Left
+    // Performs an arithmetic left bitshift to the contents of a memory address
+    // Modifles: 
+    //          carryFlag (1 if bit 1 is set)
+    //          zeroFlag (if shift results in 0)
+    //          signFlag (if sign bit is set)
     private void ASL(short addr){
         carryFlag = (ram[addr] & 0x01);// is bit 1 set? if so it goes into carry
         ram[addr] = (byte) (ram[addr] << 1);// shift the number left
@@ -135,6 +148,12 @@ public class Emulator {
         signFlag = (ram[addr] & 0x80) >> 7;
     }
     
+    // Logical Shift Right
+    // performs a logical right bitshift
+    // Modifies:
+    //          carryFlag (1 if bit was was originally set)
+    //          zeroFlag (if result was 0)
+    //          signFlag always set to 0
     private void LSR(short addr){
         carryFlag = (ram[addr] & 0x01);// is bit 1 set? if so it goes into carry
         ram[addr] = (byte) (ram[addr] >> 1);
