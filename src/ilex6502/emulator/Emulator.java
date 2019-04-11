@@ -435,6 +435,14 @@ public class Emulator {
             case 0x85: // STA zero page
                 ram[rom[programCounter]] = accumulator;
                 break;
+            case 0xA2:
+                System.out.println("PC " + programCounter);
+                System.out.println("LDX immediate");
+                xRegister = rom[programCounter];
+                programCounter++;
+                signFlag = xRegister & 0x80;
+                zeroFlag = ~xRegister;
+                break;
             case 0xA9: // LDA immediate
                 System.out.println("PC: " + programCounter);
                 System.out.println("LDA immediate");
@@ -446,6 +454,10 @@ public class Emulator {
             case 0xB8: // CLV - clear overflow
                 overflowFlag = 0;
                 break;
+            case 0xE8: // INX - increment X register, implied mode
+                xRegister++;
+                signFlag = xRegister & 0x80;
+                zeroFlag = ~xRegister;
             case 0xD8: // CLD - clear decimal flag
                 decimalFlag = 0;
                 break;
