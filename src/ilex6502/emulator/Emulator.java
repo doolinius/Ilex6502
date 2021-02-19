@@ -161,6 +161,14 @@ public class Emulator {
         signFlag = 0;
     }
     
+    // Rotate Left
+    // Move each of the bits in either A or M one place to the left. 
+    // Bit 0 is filled with the current value of the carry flag whilst the old 
+    // bit 7 becomes the new carry flag value.
+    // Modifies:
+    //          carryFlag (set to old bit 7)
+    //          zeroFlag (if result was 0)
+    //          signFlag (set equal to bit 7 of result)
     private void ROL(short addr){
         carryFlag = (ram[addr] & 0x80) >> 7;// is bit 7 set? if so it goes into carry
         ram[addr] = (byte) (ram[addr] << 1);
@@ -168,25 +176,55 @@ public class Emulator {
         zeroFlag = (ram[addr] == 0) ? 0 : 1;
     }
     
+    // Rotate Right
+    // Move each of the bits in either A or M one place to the right. 
+    // Bit 7 is filled with the current value of the carry flag whilst the old 
+    // bit 0 becomes the new carry flag value.
+    // Modifies:
+    //          carryFlag (set to old bit 0)
+    //          zeroFlag (set if accumulator is 0)
+    //          signFlag (set if bit 7 or result is set)
     private void ROR(short addr){
+        //byte oldCarry = (byte)carryFlag; // old carry flag goes into bit 7 
+        byte oldCarry = (byte)((carryFlag == 1) ? 0x80: 0x00); // old carry flag goes into bit 7 
         carryFlag = (ram[addr] & 0x01);// is bit 0 set? if so it goes into carry
         ram[addr] = (byte) (ram[addr] >> 1);
-        ram[addr] = (byte) (ram[addr] & 0x80);
+        ram[addr] = (byte) (ram[addr] & oldCarry); // 0x80); WRONG
         zeroFlag = (ram[addr] == 0) ? 0 : 1;
     }
     
+    // Logical Inclusive OR
+    // An inclusive OR is performed, bit by bit, on the accumulator contents 
+    // using the contents of a byte of memory.
+    // Modifies:
+    //          zeroFlag (set if Accumulator = 0)
+    //          signFlag (set if bit 7 is set)
     private void ORA(byte b){
         accumulator = (byte) (accumulator | b);
         zeroFlag = (accumulator == 0) ? 0 : 1;
         signFlag = (accumulator & 0x80) >> 7;
     }
     
+    // Logical Inclusive AND
+    // A logical AND is performed, bit by bit, on the accumulator contents 
+    // using the contents of a byte of memory.
+    // Modifies:
+    //          zeroFlag (set if Accumulator = 0)
+    //          signFlag (set if bit 7 is set)
     private void AND(byte b){
         accumulator = (byte) (accumulator & b);
         zeroFlag = (accumulator == 0) ? 0 : 1;
         signFlag = (accumulator & 0x80) >> 7;
     }
     
+    // This instructions is used to test if one or more bits are set in a 
+    // target memory location. The mask pattern in A is ANDed with the value 
+    // in memory to set or clear the zero flag, but the result is not kept. 
+    // Bits 7 and 6 of the value from memory are copied into the N and V flags.
+    // Modifies:
+    //          zeroFlag (set if result of AND is zero)
+    //          overflowFlag (set to bit 6 of memory location)
+    //          signFlag (set to bit 7 of memory location)
     private void BIT(byte b){
         byte result = (byte) (accumulator & b);
         zeroFlag = (result == 0) ? 0 : 1;
@@ -194,10 +232,27 @@ public class Emulator {
         overflowFlag = (b & 0x40) >> 6;
     }
     
+    // Logical Exclusive OR
+    // An exclusive OR is performed, bit by bit, on the accumulator contents 
+    // using the contents of a byte of memory.
+    // Modifies:
+    //          zeroFlag (set if Accumulator = 0)
+    //          signFlag (set if bit 7 is set)
     private void EOR(byte b){
         accumulator = (byte) (accumulator ^ b);
         zeroFlag = (accumulator == 0) ? 0 : 1;
         signFlag = (accumulator & 0x80) >> 7;
+    }
+    
+    public void compare(byte a, byte b){
+        carryFlag = 0;
+        zeroFlag = 0;
+        if (a == b){
+            carryFlag = 1;
+            zeroFlag = 1;
+        }else if (a > b){
+            carryFlag = 1;
+        }
     }
     
     public void performInstruction(){
@@ -425,23 +480,88 @@ public class Emulator {
                 ADC(rom[programCounter]);
                 programCounter++;
                 break;
+            case 0x66: // ROR zero-page
+                ROR(rom[programCounter]);
+                programCounter++;
+                break;
             case 0x69: // ADC immediate
                 ADC(rom[programCounter]);
                 programCounter++;
                 break;
+            case 0x6A: // ROR accumulator
+                byte oldCarry = (byte)((carryFlag == 1) ? 0x80: 0x00); // old carry flag goes into bit 7 
+                carryFlag = (accumulator & 0x01);// is bit 0 set? if so it goes into carry
+                accumulator = (byte) (accumulator >> 1);
+                accumulator = (byte) (accumulator ^ oldCarry); // 0x80);
+                zeroFlag = (accumulator == 0) ? 0 : 1;
+                break;
+            case 0x6D:// ADC, absolute
+                ADC(resolveAbsolute(rom[programCounter++],rom[programCounter]));
+                programCounter++;
+                break;
+            case 0x6E: // ROR absolute
+                ROR(resolveAbsolute(rom[programCounter++],rom[programCounter]));
+                programCounter++;
+                break;
+            case 0x71: // ADC indirect Y
+                ADC(resolveIndirectY(rom[programCounter]));
+                programCounter++;
+                break;
+            case 0x75:
+                addr = (short)(rom[programCounter] + xRegister);
+                ADC(ram[addr]);
+                break;
+            case 0x76: // ROR zero page X
+                addr = (short)(rom[programCounter] + xRegister);
+                ROR(addr);
+                programCounter++;
+                break; 
             case 0x78: // SEI - set interrupt flag
                 interruptFlag = 1;
                 break;
+            case 0x79: // ADC - absolute, Y
+                addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]) + yRegister);
+                ADC(ram[addr]);
+                programCounter++;
+                break;
+            case 0x7D: // ADC - absolute X
+                addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]) + xRegister);
+                ADC(ram[addr]);
+                programCounter++;
+                break;
+            case 0x7E: // ROR absolute
+                ROR(resolveAbsoluteX(rom[programCounter++],rom[programCounter])); // double check
+                programCounter++;
+                break;
             case 0x85: // STA zero page
                 ram[rom[programCounter]] = accumulator;
+                programCounter++;
                 break;
-            case 0xA2:
+            case 0x88: // DEY - decrement Y register, implied
+                yRegister--;
+                zeroFlag = (yRegister == 0) ? 1:0;
+                signFlag = yRegister & 0x80;
+                programCounter++;
+                break;
+            case 0xA0: // LDY - immediate
+                yRegister = rom[programCounter];
+                programCounter++;
+                signFlag = xRegister & 0x80;
+                zeroFlag = ~xRegister;
+                break;
+            case 0xA2: // LDX - immediate
                 System.out.println("PC " + programCounter);
                 System.out.println("LDX immediate");
                 xRegister = rom[programCounter];
                 programCounter++;
                 signFlag = xRegister & 0x80;
                 zeroFlag = ~xRegister;
+                break;
+            case 0xA4: // LDY - zero page
+                yRegister = ram[rom[programCounter]];
+                programCounter++;
+                signFlag = yRegister & 0x80;
+                zeroFlag = ~yRegister;
                 break;
             case 0xA9: // LDA immediate
                 System.out.println("PC: " + programCounter);
@@ -451,13 +571,120 @@ public class Emulator {
                 signFlag = accumulator & 0x80;
                 zeroFlag = ~accumulator;
                 break;
+            case 0xAC:// LDY - absolute
+                addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]));
+                yRegister = ram[addr];
+                programCounter++;
+                signFlag = yRegister & 0x80;
+                zeroFlag = ~yRegister;
+                break;
+            case 0xB4: // LDY - zero page, X
+                addr = (short)(rom[programCounter] + xRegister);
+                yRegister = ram[addr];
+                programCounter++;
+                signFlag = yRegister & 0x80;
+                zeroFlag = ~yRegister;
+                break;
             case 0xB8: // CLV - clear overflow
                 overflowFlag = 0;
+                break;
+            case 0xBC:// LDY - absolute X
+                addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]) + xRegister);
+                yRegister = ram[addr];
+                programCounter++;
+                signFlag = yRegister & 0x80;
+                zeroFlag = ~yRegister;
+                break;
+            case 0xC0: // CPY - compare Y register, immediate mode
+                compare(yRegister, rom[programCounter]);
+                programCounter++;
+                break;
+            case 0xC1: // CMP - compare Accumulator, indirect X
+                compare(accumulator, resolveIndirectX(rom[programCounter]));
+                programCounter++;
+                break;
+            case 0xC4: // CPY - compare Y register, zero page
+                compare(yRegister, ram[rom[programCounter]]);
+                programCounter++;
+                programCounter++;
+                break;
+            case 0xC5: // CMP - compare Accumulator, zero page
+                compare(accumulator, ram[rom[programCounter]]);
+                programCounter++;
+                break;
+            case 0xC6: // DEC - zero page
+                ram[rom[programCounter]]--;
+                programCounter++;
+                break;
+            case 0xC9: // CMP - compare Accumulator, immediate
+                compare(accumulator, rom[programCounter]);
+                programCounter++;
+                break;
+            case 0xCA: // DEX - decrement X register, implied
+                xRegister--;
+                signFlag = xRegister & 0x80;
+                zeroFlag = ~xRegister;
+                programCounter++;
+                break;
+            case 0xCC: // CPY - compare Y register, absolute
+                addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]));
+                programCounter++;
+                compare(yRegister, ram[addr]);
+                break;
+            case 0xCE: // DEC - decrement, absolute
+                addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]));
+                programCounter++;
+                ram[addr]--;
+                break;
+            case 0xCD: // CPY - compare Accumulator, absolute
+                addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]));
+                programCounter++;
+                compare(accumulator, ram[addr]);
+                break;
+            case 0xD1: // CMP - compare Accumulator, indirect Y
+                compare(accumulator, resolveIndirectY(rom[programCounter]));
+                programCounter++;
+                break;
+            case 0xD5: // CMP - compare Accumulator, zero page X
+                addr = (short)(rom[programCounter] + xRegister);
+                compare(accumulator, ram[addr]);
+                programCounter++;
+                break;
+            case 0xD6: // DEC - zero page, X
+                addr = (short)(rom[programCounter] + xRegister);
+                ram[addr]--;
+                programCounter++;
+                break;
+            case 0xD9: // CMP - compare Accumulator, zero page X
+                compare(accumulator, resolveAbsoluteY(rom[programCounter++],rom[programCounter]));
+                programCounter++;
+                break;
+            case 0xDD: // CMP - compare Accumulator, zero page X
+                compare(accumulator, resolveAbsoluteX(rom[programCounter++],rom[programCounter]));
+                programCounter++;
+                break;
+            case 0xDE: // DEC - decrement, absolute X
+                ram[bytesToAddr(rom[programCounter++], rom[programCounter]) + xRegister]--;
+                programCounter++;
+                break;
+            case 0xE0: // CPX - compare X register, immediate mode
+                compare(xRegister, rom[programCounter]);
+                programCounter++;
+                break;
+            case 0xE4: // CPX - compare X register, zero page
+                compare(xRegister, ram[rom[programCounter]]);
+                programCounter++;
+                break;
+            case 0xEC: // CPX - compare X register, absolute
+                addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]));
+                programCounter++;
+                compare(xRegister, ram[addr]);
                 break;
             case 0xE8: // INX - increment X register, implied mode
                 xRegister++;
                 signFlag = xRegister & 0x80;
                 zeroFlag = ~xRegister;
+                break;
             case 0xD8: // CLD - clear decimal flag
                 decimalFlag = 0;
                 break;

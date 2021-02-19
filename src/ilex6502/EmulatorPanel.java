@@ -4,13 +4,13 @@
  */
 package ilex6502;
 
+import java.awt.Canvas;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Rectangle;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JPanel;
-import javax.swing.JTextArea;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultCaret;
 import javax.swing.text.JTextComponent;
@@ -110,15 +110,15 @@ public class EmulatorPanel extends JPanel{
         getScreen().setBackground(theme.getBgColor());
         getScreen().setForeground(theme.getFgColor());
         EmuCaret c = new EmuCaret();
-        getScreen().setCaret(c);
-        getScreen().setCaretColor(theme.getFgColor());
+        //getScreen().setCaret(c);
+        //getScreen().setCaretColor(theme.getFgColor());
     }
 
     
     /**
      * @return the screen
      */
-    public JTextArea getScreen() {
+    public Canvas getScreen() {
         return getEmu().getScreenPanel().getScreen();
     }
 

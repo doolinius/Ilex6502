@@ -76,7 +76,8 @@ public class RegisterPanel extends JPanel{
      * @param accumulator the accumulator to set
      */
     public void setAccumulator(byte accumulator) {
-        this.accumulator.setText(Integer.toString(accumulator, 16));
+        //this.accumulator.setText(Integer.toBinaryString(accumulator));
+        this.accumulator.setText(String.format("%8s", Integer.toBinaryString(accumulator)).replace(' ', '0'));
     }
 
     /**
