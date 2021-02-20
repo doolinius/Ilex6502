@@ -35,7 +35,7 @@ public class EmulatorPanel extends JPanel{
         
         JPanel foo = emu.getScreenPanel();
         if (foo == null){
-            System.out.println("FUCK");
+            System.out.println("WTF");
         }
         
         add(emu.getScreenPanel());

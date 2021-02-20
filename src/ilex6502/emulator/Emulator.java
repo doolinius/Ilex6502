@@ -4,6 +4,7 @@
  */
 package ilex6502.emulator;
 
+import ilex6502.assembler.AddressMode;
 import java.io.File;
 import java.io.FileInputStream;
 import java.nio.file.Files;
@@ -32,7 +33,13 @@ public class Emulator {
     protected int interruptFlag;
     protected int carryFlag;
     
+    protected int romSize = 0;
+    
     public Emulator(){
+        initEmulator();
+    }
+    
+    private void initEmulator(){
         accumulator = 0x00;
         xRegister = 0x00;
         yRegister = 0x00;
@@ -46,6 +53,7 @@ public class Emulator {
         try{
             byte[] data = Files.readAllBytes(f.toPath());
             System.arraycopy(data, 0, rom, 0, data.length);
+            romSize = data.length;
             //for (int x =0; x<data.length; x++){
             //    System.out.println("Loaded ROM with " + rom[x]);
             //}
@@ -55,7 +63,10 @@ public class Emulator {
     }
     
     public void runBinary(){
-        
+        initEmulator();
+        while (programCounter < romSize){
+            performInstruction();
+        }
     }
     
     public static short byteToUnsigned(byte b) {
@@ -86,9 +97,58 @@ public class Emulator {
         }
     }
     
+    private byte readRam(AddressMode m){
+        return(0);
+    }
+    
+    private static byte readMemory(short address){
+        if (address < 0x6C00){
+            return(ram[address]);
+        }else if(address < 0x7000){
+            return(screenMemory[address-0x6C00]);
+        }else if(address < 0x8000){
+            return(stackMemory[address-0x7000]);
+        }else{
+            return(rom[address-0x8000]);
+        }
+    }
+    
     private short bytesToAddr(byte low, byte high){
         short addr = (short)((low << 8) + high);
         return(addr);
+    }
+    
+    private short getZeroPageAddr(){
+        return(byteToUnsigned(rom[programCounter]));
+    }
+    
+    private short getZeroPageXAddr(){
+        short addr = (short)(byteToUnsigned(rom[programCounter]) + xRegister);
+        return(addr);
+    }
+    
+    private short getAbsoluteAddr(){
+        return(bytesToAddr(rom[programCounter++], rom[programCounter]));
+    }
+    
+    private short getAbsoluteXAddr(){
+        return((short)(bytesToAddr(rom[programCounter++], rom[programCounter]) + xRegister));
+    }
+    
+    private short getAbsoluteYAddr(){
+        return((short)(bytesToAddr(rom[programCounter++], rom[programCounter]) + yRegister));
+    }
+    
+    private short getIndirectXAddr(){
+        byte low = ram[rom[programCounter]+xRegister];
+        byte high = ram[rom[programCounter]+xRegister+1];
+        return(bytesToAddr(low, high));
+    }
+    
+    private short getIndirectYAddr(){
+        byte low = ram[rom[programCounter]];
+        byte high = ram[rom[programCounter]+1];
+        return((short)(bytesToAddr(low, high) + yRegister));
     }
     
     private byte resolveAbsolute(byte low, byte high){
@@ -126,6 +186,30 @@ public class Emulator {
     //          overFlowFlag if addition caused overflow
     private void ADC(byte b){
         // get temporary result and check for carry
+        short x = (short)(carryFlag + accumulator + byteToUnsigned(b));
+        carryFlag = (x > 255) ? 1 : 0;
+        
+        accumulator += carryFlag + byteToUnsigned(b);
+        zeroFlag = (accumulator == 0) ? 0 : 1;
+        signFlag = (accumulator & 0x80) >> 7;
+        overflowFlag = (accumulator & 0x40) >> 6;
+    }
+    
+    // SuBtract with Carry instruction
+    // Subtracts the operand from the accumulator together with the NOT of the 
+    // carryFlag, and stores the result back to the accumulator
+    // If overflow occurs, the carry bit is clear
+    // Modifies 
+    //          carryFlag (1 if carry was needed)
+    //          zeroFlag if result was zero
+    //          signFlag if sign bit was set
+    //          overFlowFlag if addition caused overflow
+    private void SBC(byte b){
+        // get temporary result and check for carry
+        // THIS IS STILL ADC
+        // TODO: MAKE THIS THE REAL SBC INSTRUCTION
+        // In fact, make sure ADC is good too.  Check this out:
+        // https://stackoverflow.com/questions/29193303/6502-emulation-proper-way-to-implement-adc-and-sbc
         short x = (short)(carryFlag + accumulator + byteToUnsigned(b));
         carryFlag = (x > 255) ? 1 : 0;
         
@@ -257,21 +341,27 @@ public class Emulator {
     
     public void performInstruction(){
         System.out.println("PC: " + programCounter);
-        System.out.println("Pre-decoded Instruction: " + rom[programCounter]);
+        System.out.println("Pre-decoded Instruction: " + String.format("0x%02X",byteToUnsigned(rom[programCounter])));
         short addr;
         switch(byteToUnsigned(rom[programCounter++])){
             case 0x00: // BRK - break
                 // implement a break/listener in the emulator
                 break;
             case 0x01: // ORA - OR Accumulator, indirect X
+                // addr = getMemoryAddr(AddressMode.INDIRECT_X);
+                // ORA(addr);
                 ORA(resolveIndirectX(rom[programCounter]));
                 programCounter++;
                 break;
             case 0x05: // ORA OR Accumulator, zero page
+                // addr = getMemoryAddr(AddressMode.ZERO_PAGE);
+                // ORA(addr);
                 ORA(ram[rom[programCounter]]);
                 programCounter++;
                 break;
             case 0x06: // ASL Arithmetic Shift Left, zero page
+                // addr = getMemoryAddr(AddressMode.ZERO_PAGE);
+                // ASL(addr);
                 addr = rom[programCounter];
                 ASL(addr);
                 programCounter++;
@@ -533,8 +623,16 @@ public class Emulator {
                 ROR(resolveAbsoluteX(rom[programCounter++],rom[programCounter])); // double check
                 programCounter++;
                 break;
+            case 0x81: // STA - indirect X
+                addr = getIndirectXAddr();
+                ram[addr] = accumulator;
+                programCounter++;
+                break;
             case 0x85: // STA zero page
-                ram[rom[programCounter]] = accumulator;
+                addr = byteToUnsigned(rom[programCounter]);
+                System.out.println("Storing " + accumulator + " in address " + addr);
+                ram[addr] = accumulator;
+                System.out.println("Confirming: " + ram[addr] + " now in RAM");
                 programCounter++;
                 break;
             case 0x88: // DEY - decrement Y register, implied
@@ -546,8 +644,14 @@ public class Emulator {
             case 0xA0: // LDY - immediate
                 yRegister = rom[programCounter];
                 programCounter++;
-                signFlag = xRegister & 0x80;
-                zeroFlag = ~xRegister;
+                signFlag = yRegister & 0x80;
+                zeroFlag = ~yRegister;
+                break;
+            case 0xA1: // LDA - load accumulator, indirect X
+                accumulator = resolveIndirectX(rom[programCounter]);
+                programCounter++;
+                signFlag = accumulator & 0x80;
+                zeroFlag = ~accumulator;
                 break;
             case 0xA2: // LDX - immediate
                 System.out.println("PC " + programCounter);
@@ -562,6 +666,19 @@ public class Emulator {
                 programCounter++;
                 signFlag = yRegister & 0x80;
                 zeroFlag = ~yRegister;
+                break;
+            case 0xA5: // LDA - load accumulator, zero page
+                accumulator = ram[rom[programCounter]];
+                programCounter++;
+                signFlag = accumulator & 0x80;
+                zeroFlag = ~accumulator;
+                break;
+            case 0xA6: // LDX - load X register, zero page
+                addr = byteToUnsigned(rom[programCounter]);
+                xRegister = ram[addr];
+                programCounter++;
+                signFlag = xRegister & 0x80;
+                zeroFlag = ~xRegister;
                 break;
             case 0xA9: // LDA immediate
                 System.out.println("PC: " + programCounter);
@@ -578,6 +695,26 @@ public class Emulator {
                 signFlag = yRegister & 0x80;
                 zeroFlag = ~yRegister;
                 break;
+            case 0xAD:// LDA - absolute
+                addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]));
+                accumulator = ram[addr];
+                programCounter++;
+                signFlag = accumulator & 0x80;
+                zeroFlag = ~accumulator;
+                break;
+            case 0xAE:// LDX - absolute
+                addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]));
+                xRegister = ram[addr];
+                programCounter++;
+                signFlag = xRegister & 0x80;
+                zeroFlag = ~xRegister;
+                break;
+            case 0xB1:// LDA - indirect Y
+                accumulator = resolveIndirectY(rom[programCounter]);
+                programCounter++;
+                signFlag = accumulator & 0x80;
+                zeroFlag = ~accumulator;
+                break;
             case 0xB4: // LDY - zero page, X
                 addr = (short)(rom[programCounter] + xRegister);
                 yRegister = ram[addr];
@@ -585,8 +722,29 @@ public class Emulator {
                 signFlag = yRegister & 0x80;
                 zeroFlag = ~yRegister;
                 break;
+            case 0xB5: // LDA - zero page, X
+                addr = (short)(rom[programCounter] + xRegister);
+                accumulator = ram[addr];
+                programCounter++;
+                signFlag = accumulator & 0x80;
+                zeroFlag = ~accumulator;
+                break;
+            case 0xB6: // LDX - zero page, Y
+                addr = (short)(rom[programCounter] + yRegister);
+                xRegister = ram[addr];
+                programCounter++;
+                signFlag = xRegister & 0x80;
+                zeroFlag = ~xRegister;
+                break;
             case 0xB8: // CLV - clear overflow
                 overflowFlag = 0;
+                break;
+            case 0xB9: // LDA - absolute Y
+                addr = resolveAbsoluteY(rom[programCounter++], rom[programCounter]);
+                accumulator = ram[addr];
+                programCounter++;
+                signFlag = accumulator & 0x80;
+                zeroFlag = ~accumulator;
                 break;
             case 0xBC:// LDY - absolute X
                 addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]) + xRegister);
@@ -594,6 +752,20 @@ public class Emulator {
                 programCounter++;
                 signFlag = yRegister & 0x80;
                 zeroFlag = ~yRegister;
+                break;
+            case 0xBD: // LDA - absolute X
+                addr = resolveAbsoluteX(rom[programCounter++], rom[programCounter]);
+                accumulator = ram[addr];
+                programCounter++;
+                signFlag = accumulator & 0x80;
+                zeroFlag = ~accumulator;
+                break;
+            case 0xBE: // LDX - absolute Y
+                addr = resolveAbsoluteY(rom[programCounter++], rom[programCounter]);
+                xRegister = ram[addr];
+                programCounter++;
+                signFlag = xRegister & 0x80;
+                zeroFlag = ~xRegister;
                 break;
             case 0xC0: // CPY - compare Y register, immediate mode
                 compare(yRegister, rom[programCounter]);
@@ -619,6 +791,11 @@ public class Emulator {
             case 0xC9: // CMP - compare Accumulator, immediate
                 compare(accumulator, rom[programCounter]);
                 programCounter++;
+                break;
+            case 0xC8: // INY - increment y Register, implied
+                yRegister++;
+                signFlag = xRegister & 0x80;
+                zeroFlag = ~xRegister;
                 break;
             case 0xCA: // DEX - decrement X register, implied
                 xRegister--;
@@ -655,11 +832,14 @@ public class Emulator {
                 ram[addr]--;
                 programCounter++;
                 break;
-            case 0xD9: // CMP - compare Accumulator, zero page X
+            case 0xD8: // CLD - clear decimal flag
+                decimalFlag = 0;
+                break;
+            case 0xD9: // CMP - compare Accumulator, absolute Y
                 compare(accumulator, resolveAbsoluteY(rom[programCounter++],rom[programCounter]));
                 programCounter++;
                 break;
-            case 0xDD: // CMP - compare Accumulator, zero page X
+            case 0xDD: // CMP - compare Accumulator, absolute X
                 compare(accumulator, resolveAbsoluteX(rom[programCounter++],rom[programCounter]));
                 programCounter++;
                 break;
@@ -675,6 +855,12 @@ public class Emulator {
                 compare(xRegister, ram[rom[programCounter]]);
                 programCounter++;
                 break;
+            case 0xE6: // INC - increment memory address, zero page
+                ram[rom[programCounter]]++;
+                programCounter++;
+                signFlag = xRegister & 0x80;
+                zeroFlag = ~xRegister;
+                break;
             case 0xEC: // CPX - compare X register, absolute
                 addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]));
                 programCounter++;
@@ -685,11 +871,31 @@ public class Emulator {
                 signFlag = xRegister & 0x80;
                 zeroFlag = ~xRegister;
                 break;
-            case 0xD8: // CLD - clear decimal flag
-                decimalFlag = 0;
+            case 0xEA: // NOP - no changes other than incrementing program counter
+                programCounter++;
+                break;
+            case 0xEE: // INC - increment memory address, Absolute
+                addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]));
+                ram[addr]++;
+                programCounter++;
+                signFlag = xRegister & 0x80;
+                zeroFlag = ~xRegister;
+                break;
+            case 0xF6: // INC - increment memory address, zero page, X
+                ram[(short)rom[programCounter] + xRegister]++;
+                programCounter++;
+                signFlag = xRegister & 0x80;
+                zeroFlag = ~xRegister;
                 break;
             case 0xF8: // SED - set decimal flag
                 decimalFlag = 1;
+                break;
+            case 0xFE: // INC - increment memory address, Absolute X
+                addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]) + xRegister);
+                ram[addr]++;
+                programCounter++;
+                signFlag = xRegister & 0x80;
+                zeroFlag = ~xRegister;
                 break;
             default:
                 System.out.println("invalid instruction");
@@ -698,17 +904,6 @@ public class Emulator {
         }
     }
     
-    private static byte readMemory(short address){
-        if (address < 0x6C00){
-            return(ram[address]);
-        }else if(address < 0x7000){
-            return(screenMemory[address-0x6C00]);
-        }else if(address < 0x8000){
-            return(stackMemory[address-0x7000]);
-        }else{
-            return(rom[address-0x8000]);
-        }
-    }
     
     private static void stackPush(byte b){
         stackPointer++;

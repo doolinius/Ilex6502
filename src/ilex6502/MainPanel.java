@@ -113,7 +113,8 @@ public class MainPanel extends JPanel implements ActionListener{
             public void actionPerformed(ActionEvent e) {
                 stopButton.setEnabled(true);
                 emuPanel.getEmu().loadBinary(edPanel.getBinaryFile());
-                emuPanel.getEmu().performInstruction();
+                //emuPanel.getEmu().performInstruction();
+                emuPanel.getEmu().runBinary();
             }
             
         });
