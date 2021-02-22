@@ -37,6 +37,23 @@ public class Emulator {
     
     public Emulator(){
         initEmulator();
+        test();
+        initEmulator();
+    }
+    
+    private void test(){
+        byte low = 0x10;
+        byte high = 0x2E;
+        short addr = bytesToAddr(low, high);
+        if (addr == 0x102E){
+            System.out.println("bytesToAddr PASSED");
+            System.out.println("Holds " + addr);
+        }
+        short testAddr = 0x1066;
+        pushAddr(testAddr);
+        System.out.println("Low byte: " + stackMemory[0]);
+        System.out.println("High byte: " + stackMemory[1]);
+        System.out.println("StackPointer: " + stackPointer);
     }
     
     private void initEmulator(){
@@ -101,6 +118,7 @@ public class Emulator {
         return(0);
     }
     
+    // Reads and returns the byte stored in a memory address
     private static byte readMemory(short address){
         if (address < 0x6C00){
             return(ram[address]);
@@ -113,9 +131,45 @@ public class Emulator {
         }
     }
     
+    // Returns the memory address based on Address Mode
+    // This will happen after reading an instruction byte
+    // Reads and may modify programCounter
+    private short getMemoryAddress(AddressMode m){
+        switch(m){
+            case ABSOLUTE:
+                return(getAbsoluteAddr());
+            case ABSOLUTE_X:
+                return(getAbsoluteXAddr());
+            case ABSOLUTE_Y:
+                return(getAbsoluteYAddr());
+            case IMMEDIATE:
+                return(getImmediateAddr());
+            case ZERO_PAGE:
+                return(getZeroPageAddr());
+            case ZERO_PAGE_X:
+                return(getZeroPageXAddr());
+            case ZERO_PAGE_Y:
+                return(getZeroPageYAddr());
+            case INDIRECT:
+                return(getIndirectAddr());
+            case INDIRECT_X:
+                return(getIndirectXAddr());
+            case INDIRECT_Y:
+                return(getIndirectYAddr());
+            case RELATIVE:
+                // the only mode that uses signed byte offsets
+                return(rom[programCounter]);
+        }
+        return(0);
+    }
+    
     private short bytesToAddr(byte low, byte high){
         short addr = (short)((low << 8) + high);
         return(addr);
+    }
+    
+    private short getImmediateAddr(){
+        return(byteToUnsigned(rom[programCounter]));
     }
     
     private short getZeroPageAddr(){
@@ -127,7 +181,13 @@ public class Emulator {
         return(addr);
     }
     
+    private short getZeroPageYAddr(){
+        short addr = (short)(byteToUnsigned(rom[programCounter]) + yRegister);
+        return(addr);
+    }
+    
     private short getAbsoluteAddr(){
+        System.out.println("Next two bytes in Absolute Mode: " + printHex(rom[programCounter]) + "-" + printHex(rom[programCounter+1]));
         return(bytesToAddr(rom[programCounter++], rom[programCounter]));
     }
     
@@ -139,15 +199,21 @@ public class Emulator {
         return((short)(bytesToAddr(rom[programCounter++], rom[programCounter]) + yRegister));
     }
     
+    private short getIndirectAddr(){
+        byte low = ram[byteToUnsigned(rom[programCounter])];
+        byte high = ram[byteToUnsigned(rom[programCounter])+1];
+        return((short)(bytesToAddr(low, high)));
+    }
+    
     private short getIndirectXAddr(){
-        byte low = ram[rom[programCounter]+xRegister];
-        byte high = ram[rom[programCounter]+xRegister+1];
+        byte low = ram[byteToUnsigned(rom[programCounter])+xRegister];
+        byte high = ram[byteToUnsigned(rom[programCounter])+xRegister+1];
         return(bytesToAddr(low, high));
     }
     
     private short getIndirectYAddr(){
-        byte low = ram[rom[programCounter]];
-        byte high = ram[rom[programCounter]+1];
+        byte low = ram[byteToUnsigned(rom[programCounter])];
+        byte high = ram[byteToUnsigned(rom[programCounter])+1];
         return((short)(bytesToAddr(low, high) + yRegister));
     }
     
@@ -175,6 +241,11 @@ public class Emulator {
         byte high = ram[addr+1];
         
         return(ram[bytesToAddr(low,high)+yRegister]);
+    }
+    
+    private byte resolveImmediate(){
+        byte val = (byte)(byteToUnsigned(rom[programCounter]));
+        return(val);
     }
     
     // ADd with Carry instruction
@@ -348,26 +419,23 @@ public class Emulator {
                 // implement a break/listener in the emulator
                 break;
             case 0x01: // ORA - OR Accumulator, indirect X
-                // addr = getMemoryAddr(AddressMode.INDIRECT_X);
-                // ORA(addr);
-                ORA(resolveIndirectX(rom[programCounter]));
+                addr = getMemoryAddress(AddressMode.INDIRECT_X);
+                ORA(ram[addr]);
                 programCounter++;
                 break;
             case 0x05: // ORA OR Accumulator, zero page
-                // addr = getMemoryAddr(AddressMode.ZERO_PAGE);
-                // ORA(addr);
-                ORA(ram[rom[programCounter]]);
+                addr = getMemoryAddress(AddressMode.ZERO_PAGE);
+                ORA(ram[addr]);
                 programCounter++;
                 break;
             case 0x06: // ASL Arithmetic Shift Left, zero page
-                // addr = getMemoryAddr(AddressMode.ZERO_PAGE);
-                // ASL(addr);
-                addr = rom[programCounter];
+                addr = getMemoryAddress(AddressMode.ZERO_PAGE);
                 ASL(addr);
                 programCounter++;
                 break;
             case 0x09: // ORA immediate
-                ORA(rom[programCounter]);
+                byte val = resolveImmediate(); // (byte)(byteToUnsigned(rom[programCounter]));
+                ORA(val);
                 programCounter++;
                 break;
             case 0x0A: // ASL accumulator
@@ -423,6 +491,12 @@ public class Emulator {
                 addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]) + xRegister);
                 ASL(addr);
                 programCounter++;
+                break;
+            case 0x20: // JSR - jump to subroutine
+                addr = getAbsoluteAddr();
+                System.out.println("JSR to " + addr);
+                pushAddr(programCounter);
+                programCounter = addr;
                 break;
             case 0x21: // AND, indirect X
                 AND(resolveIndirectX(rom[programCounter]));
@@ -628,17 +702,90 @@ public class Emulator {
                 ram[addr] = accumulator;
                 programCounter++;
                 break;
+            case 0x84: // STY zero page
+                addr = getZeroPageAddr();
+                ram[addr] = yRegister;
+                programCounter++;
+                break;
             case 0x85: // STA zero page
-                addr = byteToUnsigned(rom[programCounter]);
+                //addr = byteToUnsigned(rom[programCounter]);
+                addr = getZeroPageAddr();
                 System.out.println("Storing " + accumulator + " in address " + addr);
                 ram[addr] = accumulator;
                 System.out.println("Confirming: " + ram[addr] + " now in RAM");
+                programCounter++;
+                break;
+            case 0x86: // STX zero page
+                //addr = byteToUnsigned(rom[programCounter]);
+                addr = getZeroPageAddr();
+                ram[addr] = xRegister;
                 programCounter++;
                 break;
             case 0x88: // DEY - decrement Y register, implied
                 yRegister--;
                 zeroFlag = (yRegister == 0) ? 1:0;
                 signFlag = yRegister & 0x80;
+                programCounter++;
+                break;
+            case 0x8A: // TXA - copy of X register to accumulator and set flags
+                accumulator = xRegister;
+                programCounter++;
+                signFlag = accumulator & 0x80;
+                zeroFlag = ~accumulator;
+                break;
+            case 0x8C: // STY absolute
+                addr = getAbsoluteAddr();
+                ram[addr] = yRegister;
+                programCounter++;
+                break;
+            case 0x8D: // STA absolute
+                addr = getAbsoluteAddr();
+                ram[addr] = accumulator;
+                programCounter++;
+                break;
+            case 0x8E: // STX absolute
+                addr = getAbsoluteAddr();
+                ram[addr] = xRegister;
+                programCounter++;
+                break;
+            case 0x91: // STA - indirect Y
+                addr = getIndirectYAddr();
+                ram[addr] = accumulator;
+                programCounter++;
+                break;
+            case 0x94: // STY - zero page X
+                addr = getZeroPageXAddr();
+                ram[addr] = yRegister;
+                programCounter++;
+                break;
+            case 0x95: // STA - zero page X
+                addr = getZeroPageXAddr();
+                ram[addr] = accumulator;
+                programCounter++;
+                break;
+            case 0x96: // STX - zero page Y
+                addr = getZeroPageYAddr();
+                ram[addr] = xRegister;
+                programCounter++;
+                break;
+            case 0x98: // TYA - copy of Y register to accumulator and set flags
+                accumulator = yRegister;
+                programCounter++;
+                signFlag = accumulator & 0x80;
+                zeroFlag = ~accumulator;
+                break;
+            case 0x99: // STA - absolute Y
+                addr = getAbsoluteYAddr();
+                ram[addr] = accumulator;
+                programCounter++;
+                break;
+            case 0x9A: // TXS - copy of X register to stackPointer and set flags
+                stackPointer = xRegister;
+                programCounter++;
+                break;
+            case 0x9D: // STA - absolute X
+                addr = getAbsoluteXAddr();
+                ram[addr] = accumulator;
                 programCounter++;
                 break;
             case 0xA0: // LDY - immediate
@@ -668,7 +815,8 @@ public class Emulator {
                 zeroFlag = ~yRegister;
                 break;
             case 0xA5: // LDA - load accumulator, zero page
-                accumulator = ram[rom[programCounter]];
+                addr = getZeroPageAddr();
+                accumulator = ram[addr];
                 programCounter++;
                 signFlag = accumulator & 0x80;
                 zeroFlag = ~accumulator;
@@ -680,6 +828,12 @@ public class Emulator {
                 signFlag = xRegister & 0x80;
                 zeroFlag = ~xRegister;
                 break;
+            case 0xA8: // TAY - copy accumulator to y register and set flags
+                yRegister = accumulator;
+                programCounter++;
+                signFlag = yRegister & 0x80;
+                zeroFlag = ~yRegister;
+                break;
             case 0xA9: // LDA immediate
                 System.out.println("PC: " + programCounter);
                 System.out.println("LDA immediate");
@@ -687,6 +841,12 @@ public class Emulator {
                 programCounter++;
                 signFlag = accumulator & 0x80;
                 zeroFlag = ~accumulator;
+                break;
+            case 0xAA: // TAX - copy accumulator to X register and set flags
+                xRegister = accumulator;
+                programCounter++;
+                signFlag = xRegister & 0x80;
+                zeroFlag = ~xRegister;
                 break;
             case 0xAC:// LDY - absolute
                 addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]));
@@ -736,6 +896,11 @@ public class Emulator {
                 signFlag = xRegister & 0x80;
                 zeroFlag = ~xRegister;
                 break;
+            case 0xBA: // TSX - copy stack pointer to X register and set flags
+                xRegister = stackPointer;
+                programCounter++;
+                signFlag = xRegister & 0x80;
+                zeroFlag = ~xRegister;
             case 0xB8: // CLV - clear overflow
                 overflowFlag = 0;
                 break;
@@ -904,15 +1069,32 @@ public class Emulator {
         }
     }
     
+    // 1101 0111 1000 0010
+    private static void pushAddr(short addr){
+        byte low = (byte)((addr & 0xFF00) >> 8);
+        byte high = (byte)(addr & 0x00FF);
+        stackPush(low);
+        stackPush(high);
+    }
     
     private static void stackPush(byte b){
+        System.out.println("Pushing " + b + " onto the stack");
         stackPointer++;
         stackMemory[stackPointer] = b;
     }
     
     private static byte stackPop(){
         byte b = stackMemory[stackPointer];
+        stackPointer--; // Why was this not here?  Maybe it's not supposed to be?
         return(b);
+    }
+    
+    private static String printHex(byte num){
+        return(String.format("0x%02X",num));
+    }
+    
+    private static String printHex(short num){
+        return(String.format("0x%04X",num));
     }
     
     public static void main(String[] args) {

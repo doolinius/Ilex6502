@@ -64,7 +64,10 @@ public class Symbol {
      * @param location the location to set
      */
     public void setLocation(int location) {
+        System.out.println("Setting Label " + name + " to " + location);
         this.location = (short)location;
+        
+        System.out.println("Label " + name + " now set to " + this.location);
     }
 
     /**

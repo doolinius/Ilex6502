@@ -77,6 +77,7 @@ public class Assembler {
     }
     
     // Just strip any comments from any source line
+    // O(2) => O(1)
     public String stripComments(String str){
         if (str.contains(";")){
             return(str.substring(0,str.indexOf(';')));
@@ -156,6 +157,7 @@ public class Assembler {
     public void addLabel(String name, int loc, SymType type,int lineNumber, int size){
         Symbol s = symbolTable.get(name);
         if (s == null){
+            System.out.println("Label " + name + " loc is " + loc);
             s = new Symbol(name,loc,type,lineNumber, size);
             symbolTable.put(name,s);
         }else{
@@ -184,19 +186,27 @@ public class Assembler {
         try{ 
             BufferedReader br = new BufferedReader(new FileReader(file));
             String line;
+            // Loop through ASM file
             while ((line = br.readLine()) != null) {
                 lineNum += 1;
                 //System.out.println("Line #" + lineNum + ": " + line);
+                // remove any comments
                 line = stripComments(line);
+                // Check to see if it's an empty line
                 if (line.trim().length() > 0){
+                    // if it's not an empty line, see what type of line it is
                     switch(lineType(line)){
                         case VARIABLE:
+                            // If it's a variable we can just save the value in the symtab
                             System.out.println("Pass 1: Line " + lineNum + ": Variable");;
                             String symbol = line.split("=")[0].trim();
                             String val = line.split("=")[1].trim();
+                            // O(1)
                             addVariable(symbol,val,SymType.VARIABLE,lineNum);
                             break;
                         case LABEL:
+                            // If it's a code Label (for subroutines or branches)
+                            // In pass 1 it's complicated.  Check out p1ProcessLabel
                             System.out.println("Pass 1: Line " + lineNum + ": Label");
                             p1ProcessLabel(line);
                             break;
@@ -215,6 +225,7 @@ public class Assembler {
                             //System.err.println("Pass 1: Invalid line");
                             //break;
                     }
+                // if it's an empty line or was just a comment
                 }else{
                     System.out.println("Pass 1: Line " + lineNum + " is a comment or empty");
                 }
@@ -241,7 +252,7 @@ public class Assembler {
     // Converts a string of hexadecimal values into the corresponding
     // byte array
     public byte[] hexStringToByteArray(String s) {
-    int len = s.length();
+    int len = s.length(); // Java uses 16 bit Unicode for Strings, so each character is 2 bytes
     byte[] data = new byte[len / 2];
     for (int i = 0; i < len; i += 2) {
         data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
@@ -251,6 +262,7 @@ public class Assembler {
 }
     
     // Pass 2 of 2 for the assembly of the code
+    // O(n)
     public byte[] assembleP2() throws Exception{
         StringBuilder outStr = new StringBuilder();
         for (SourceLine line: intermediateSourceLines){
@@ -318,12 +330,15 @@ public class Assembler {
     }
     
     public void p1ProcessLabel(String line){
+        // Trim off the colon and only save the label itself
         line = line.replace(":","").trim();
         //System.out.println("Label found: " + line);
         if (isValidLabel(line)){
+            // if the label doesn't exist in the symbol table, add it
             if(!symbolTable.containsKey(line)){
                 addLabel(line,lc,SymType.LABEL,lineNum, 3);
                 //System.out.println("added label");
+            //otherwise, update the symbol table if possible
             }else{
                 updateLabel(line,lc);
             }
@@ -340,11 +355,16 @@ public class Assembler {
         String oc = instructions.getOpCode(line.getOperator(), line.getMode());
         if (isValidLabel(line.getOperand())){
             operand = symbolTable.get(line.getOperand()).getValue();
-            //System.out.println("P2 Process: got instruction operand " + operand);
+            System.out.println("P2 Process: got instruction operand " + operand);
             if (line.getMode() == AddressMode.RELATIVE){
                 int opInt = Integer.parseInt(operand,16);
                 int diff = opInt - line.getLc();
                 operand = String.format("%02x",Integer.toHexString(diff & 0x000000FF));
+            }else if(line.getMode() == AddressMode.ABSOLUTE){
+                int memLocation = symbolTable.get(line.getOperand()).getLocation();
+                operand = "$" + String.format("%04x",memLocation);
+                System.out.println("Operand NOW: " + operand);
+                operand = num2hex(operand, line.getMode().size());
             }else{
                 operand = num2hex(operand,line.getMode().size());
             }
@@ -454,7 +474,7 @@ public class Assembler {
     private void reset(){
         symbolTable.clear();
         intermediateSourceLines.clear();
-        
+        lineNum = 0;
     }
     
     // Takes a .asm file parameter and runs both passes of the assembler
