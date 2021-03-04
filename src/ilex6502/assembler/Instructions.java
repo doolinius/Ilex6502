@@ -16,11 +16,11 @@ public class Instructions {
     private List<String> validBranchOps = Arrays.asList("BEQ","BNE","BCC","BCS","BPL","BVC","BMI","BVS");
     
     public Instructions() {
-        addOp("BRK", "00", AddressMode.IMMEDIATE);
+        addOp("BRK", "00", AddressMode.IMPLIED);
         addOp("ORA", "01", AddressMode.INDIRECT_X);
         addOp("JAM", "02", AddressMode.IMPLIED);
         addOp("SLO", "03", AddressMode.INDIRECT_X);
-        addOp("NOP", "04", AddressMode.ZERO_PAGE);
+        //addOp("NOP", "04", AddressMode.ZERO_PAGE);
         addOp("ORA", "05", AddressMode.ZERO_PAGE);
         addOp("ASL", "06", AddressMode.ZERO_PAGE);
         addOp("SLO", "07", AddressMode.ZERO_PAGE);
@@ -28,7 +28,7 @@ public class Instructions {
         addOp("ORA", "09", AddressMode.IMMEDIATE);
         addOp("ASL", "0A", AddressMode.ACCUMULATOR);
         addOp("ANC", "0B", AddressMode.IMMEDIATE);
-        addOp("NOP", "0C", AddressMode.ABSOLUTE);
+        //addOp("NOP", "0C", AddressMode.ABSOLUTE);
         addOp("ORA", "0D", AddressMode.ABSOLUTE);
         addOp("ASL", "0E", AddressMode.ABSOLUTE);
         addOp("SLO", "0F", AddressMode.ABSOLUTE);
@@ -36,15 +36,15 @@ public class Instructions {
         addOp("ORA", "11", AddressMode.INDIRECT_Y);
         addOp("JAM", "12", AddressMode.IMPLIED);
         addOp("SLO", "13", AddressMode.INDIRECT_Y);
-        addOp("NOP", "14", AddressMode.ZERO_PAGE_X);
+        //addOp("NOP", "14", AddressMode.ZERO_PAGE_X);
         addOp("ORA", "15", AddressMode.ZERO_PAGE_X);
         addOp("ASL", "16", AddressMode.ZERO_PAGE_X);
         addOp("SLO", "17", AddressMode.ZERO_PAGE_X);
         addOp("CLC", "18", AddressMode.IMPLIED,1);
         addOp("ORA", "19", AddressMode.ABSOLUTE_Y);
-        addOp("NOP", "1A", AddressMode.IMPLIED);
+        //addOp("NOP", "1A", AddressMode.IMPLIED);
         addOp("SLO", "1B", AddressMode.ABSOLUTE_Y);
-        addOp("NOP", "1C", AddressMode.ABSOLUTE_X);
+        //addOp("NOP", "1C", AddressMode.ABSOLUTE_X);
         addOp("ORA", "1D", AddressMode.ABSOLUTE_X);
         addOp("ASL", "1E", AddressMode.ABSOLUTE_X);
         addOp("SLO", "1F", AddressMode.ABSOLUTE_X);
@@ -68,15 +68,15 @@ public class Instructions {
         addOp("AND", "31", AddressMode.INDIRECT_Y);
         addOp("JAM", "32", AddressMode.IMPLIED);
         addOp("RLA", "33", AddressMode.INDIRECT_Y);
-        addOp("NOP", "34", AddressMode.ZERO_PAGE_X);
+        //addOp("NOP", "34", AddressMode.ZERO_PAGE_X);
         addOp("AND", "35", AddressMode.ZERO_PAGE_X);
         addOp("ROL", "36", AddressMode.ZERO_PAGE_X);
         addOp("RLA", "37", AddressMode.ZERO_PAGE_X);
         addOp("SEC", "38", AddressMode.IMPLIED,1);
         addOp("AND", "39", AddressMode.ABSOLUTE_Y);
-        addOp("NOP", "3A", AddressMode.IMPLIED);
+        //addOp("NOP", "3A", AddressMode.IMPLIED);
         addOp("RLA", "3B", AddressMode.ABSOLUTE_Y);
-        addOp("NOP", "3C", AddressMode.ABSOLUTE_X);
+        //addOp("NOP", "3C", AddressMode.ABSOLUTE_X);
         addOp("AND", "3D", AddressMode.ABSOLUTE_X);
         addOp("ROL", "3E", AddressMode.ABSOLUTE_X);
         addOp("RLA", "3F", AddressMode.ABSOLUTE_X);
@@ -84,7 +84,7 @@ public class Instructions {
         addOp("EOR", "41", AddressMode.INDIRECT_X);
         addOp("JAM", "42", AddressMode.IMPLIED);
         addOp("SRE", "43", AddressMode.INDIRECT_X);
-        addOp("NOP", "44", AddressMode.ZERO_PAGE);
+        //addOp("NOP", "44", AddressMode.ZERO_PAGE);
         addOp("EOR", "45", AddressMode.ZERO_PAGE);
         addOp("LSR", "46", AddressMode.ABSOLUTE_X);
         addOp("SRE", "47", AddressMode.ZERO_PAGE);
@@ -100,22 +100,22 @@ public class Instructions {
         addOp("EOR", "51", AddressMode.INDIRECT_Y);
         addOp("JAM", "52", AddressMode.IMPLIED);
         addOp("SRE", "53", AddressMode.INDIRECT_Y);
-        addOp("NOP", "54", AddressMode.ZERO_PAGE_X);
+        //addOp("NOP", "54", AddressMode.ZERO_PAGE_X);
         addOp("EOR", "55", AddressMode.ZERO_PAGE_X);
         addOp("LSR", "56", AddressMode.ZERO_PAGE_X);
         addOp("SRE", "57", AddressMode.ZERO_PAGE_X);
         addOp("CLI", "58", AddressMode.IMPLIED,1);
         addOp("EOR", "59", AddressMode.ABSOLUTE_Y);
-        addOp("NOP", "5A", AddressMode.IMPLIED);
+        //addOp("NOP", "5A", AddressMode.IMPLIED);
         addOp("SRE", "5B", AddressMode.ABSOLUTE_Y);
-        addOp("NOP", "5C", AddressMode.ABSOLUTE_X);
+        //addOp("NOP", "5C", AddressMode.ABSOLUTE_X);
         addOp("EOR", "5D", AddressMode.ABSOLUTE_X);
         addOp("SRE", "5F", AddressMode.ABSOLUTE_X);
         addOp("RTS", "60", AddressMode.IMPLIED,1);
         addOp("ADC", "61", AddressMode.INDIRECT_X);
         addOp("JAM", "62", AddressMode.IMPLIED);
         addOp("RRA", "63", AddressMode.INDIRECT_X);
-        addOp("NOP", "64", AddressMode.ZERO_PAGE);
+        //addOp("NOP", "64", AddressMode.ZERO_PAGE);
         addOp("ADC", "65", AddressMode.ZERO_PAGE);
         addOp("ROR", "66", AddressMode.ZERO_PAGE);
         addOp("RRA", "67", AddressMode.ZERO_PAGE);
@@ -131,28 +131,28 @@ public class Instructions {
         addOp("ADC", "71", AddressMode.INDIRECT_Y);
         addOp("JAM", "72", AddressMode.IMPLIED);
         addOp("RRA", "73", AddressMode.INDIRECT_Y);
-        addOp("NOP", "74", AddressMode.ZERO_PAGE_X);
+        //addOp("NOP", "74", AddressMode.ZERO_PAGE_X);
         addOp("ADC", "75", AddressMode.ZERO_PAGE_X);
         addOp("ROR", "76", AddressMode.ZERO_PAGE_X);
         addOp("RRA", "77", AddressMode.ZERO_PAGE_X);
         addOp("SEI", "78", AddressMode.IMPLIED,1);
         addOp("ADC", "79", AddressMode.ABSOLUTE_Y);
-        addOp("NOP", "7A", AddressMode.IMPLIED);
+        //addOp("NOP", "7A", AddressMode.IMPLIED);
         addOp("RRA", "7B", AddressMode.ABSOLUTE_Y);
-        addOp("NOP", "7C", AddressMode.ABSOLUTE_X);
+        //addOp("NOP", "7C", AddressMode.ABSOLUTE_X);
         addOp("ADC", "7D", AddressMode.ABSOLUTE_X);
         addOp("ROR", "7E", AddressMode.ABSOLUTE_X);
         addOp("RRA", "7F", AddressMode.ABSOLUTE_X);
-        addOp("NOP", "80", AddressMode.IMMEDIATE);
+        //addOp("NOP", "80", AddressMode.IMMEDIATE);
         addOp("STA", "81", AddressMode.INDIRECT_X);
-        addOp("NOP", "82", AddressMode.IMMEDIATE);
+        //addOp("NOP", "82", AddressMode.IMMEDIATE);
         addOp("SAX", "83", AddressMode.INDIRECT_X);
         addOp("STY", "84", AddressMode.ZERO_PAGE);
         addOp("STA", "85", AddressMode.ZERO_PAGE);
         addOp("STX", "86", AddressMode.ZERO_PAGE);
         addOp("SAX", "87", AddressMode.ZERO_PAGE);
         addOp("DEY", "88", AddressMode.IMPLIED,1);
-        addOp("NOP", "89", AddressMode.IMMEDIATE);
+        //addOp("NOP", "89", AddressMode.IMMEDIATE);
         addOp("TXA", "8A", AddressMode.IMPLIED,1);
         addOp("ANE", "8B", AddressMode.IMMEDIATE,2);
         addOp("STY", "8C", AddressMode.ABSOLUTE);
@@ -209,7 +209,7 @@ public class Instructions {
         addOp("LAX", "BF", AddressMode.ABSOLUTE_Y);
         addOp("CPY", "C0", AddressMode.IMMEDIATE);
         addOp("CMP", "C1", AddressMode.INDIRECT_X);
-        addOp("NOP", "C2", AddressMode.IMMEDIATE);
+        //addOp("NOP", "C2", AddressMode.IMMEDIATE);
         addOp("DCP", "C3", AddressMode.INDIRECT_X);
         addOp("CPY", "C4", AddressMode.ZERO_PAGE);
         addOp("CMP", "C5", AddressMode.ZERO_PAGE);
@@ -227,21 +227,21 @@ public class Instructions {
         addOp("CMP", "D1", AddressMode.INDIRECT_Y);
         addOp("JAM", "D2", AddressMode.IMPLIED);
         addOp("DCP", "D3", AddressMode.INDIRECT_Y);
-        addOp("NOP", "D4", AddressMode.ZERO_PAGE_X);
+        //addOp("NOP", "D4", AddressMode.ZERO_PAGE_X);
         addOp("CMP", "D5", AddressMode.ZERO_PAGE_X);
         addOp("DEC", "D6", AddressMode.ZERO_PAGE_X);
         addOp("DCP", "D7", AddressMode.ZERO_PAGE_X);
         addOp("CLD", "D8", AddressMode.IMPLIED,1);
         addOp("CMP", "D9", AddressMode.ABSOLUTE_Y);
-        addOp("NOP", "DA", AddressMode.IMPLIED);
+        //addOp("NOP", "DA", AddressMode.IMPLIED);
         addOp("DCP", "DB", AddressMode.ABSOLUTE_Y);
-        addOp("NOP", "DC", AddressMode.ABSOLUTE_X);
+        //addOp("NOP", "DC", AddressMode.ABSOLUTE_X);
         addOp("CMP", "DD", AddressMode.ABSOLUTE_X);
         addOp("DEC", "DE", AddressMode.ABSOLUTE_X);
         addOp("DCP", "DF", AddressMode.ABSOLUTE_X);
         addOp("CPX", "E0", AddressMode.IMMEDIATE);
         addOp("SBC", "E1", AddressMode.INDIRECT_X);
-        addOp("NOP", "E2", AddressMode.IMMEDIATE);
+        //addOp("NOP", "E2", AddressMode.IMMEDIATE);
         addOp("ISB", "E3", AddressMode.INDIRECT_X);
         addOp("CPX", "E4", AddressMode.ZERO_PAGE);
         addOp("SBC", "E5", AddressMode.ZERO_PAGE);
@@ -259,15 +259,15 @@ public class Instructions {
         addOp("SBC", "F1", AddressMode.INDIRECT_Y);
         addOp("JAM", "F2", AddressMode.IMPLIED);
         addOp("ISB", "F3", AddressMode.INDIRECT_Y);
-        addOp("NOP", "F4", AddressMode.ZERO_PAGE_X);
+        //addOp("NOP", "F4", AddressMode.ZERO_PAGE_X);
         addOp("SBC", "F5", AddressMode.ZERO_PAGE_X);
         addOp("INC", "F6", AddressMode.ZERO_PAGE_X);
         addOp("ISB", "F7", AddressMode.ZERO_PAGE_X);
         addOp("SED", "F8", AddressMode.IMPLIED,1);
         addOp("SBC", "F9", AddressMode.ABSOLUTE_Y);
-        addOp("NOP", "FA", AddressMode.IMPLIED);
+        //addOp("NOP", "FA", AddressMode.IMPLIED);
         addOp("ISB", "FB", AddressMode.ABSOLUTE_Y);
-        addOp("NOP", "FC", AddressMode.ABSOLUTE_X);
+        //addOp("NOP", "FC", AddressMode.ABSOLUTE_X);
         addOp("SBC", "FD", AddressMode.ABSOLUTE_X);
         addOp("INC", "FE", AddressMode.ABSOLUTE_X);
         addOp("ISB", "FF", AddressMode.ABSOLUTE_X);
@@ -296,7 +296,7 @@ public class Instructions {
     
     public boolean isValidBranch(String operator, String operand){
         return(validBranchOps.contains(operator) &&
-                operand.trim().matches("^[a-zA-Z]\\w+&"));
+                operand.trim().matches("^[a-zA-Z]\\w+$"));
     }
     
     // Uses regex matching to determine the addressing mode based on the

@@ -15,7 +15,7 @@ public class OpCodes {
     OpCode[] ops = new OpCode[256];
     
     public OpCodes(){
-        addOp("BRK", 0x00, AddressMode.IMMEDIATE);
+        addOp("BRK", 0x00, AddressMode.IMPLIED);
         addOp("ORA", 0x01, AddressMode.INDIRECT_X);
         addOp("JAM", 0x02, AddressMode.IMPLIED);
         addOp("SLO", 0x03, AddressMode.INDIRECT_X);

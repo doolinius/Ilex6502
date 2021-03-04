@@ -15,6 +15,7 @@ import java.nio.file.Files;
  */
 public class Emulator {
     private static OpCodes codes = new OpCodes();
+    private final int STACK_START = 0x0100;
     private static byte[] ram = new byte[27648];// 0x0000 - 0x6C00 (exclusive)
     private static byte[] screenMemory = new byte[1024];// - 0x6C00 - 7000
     private static byte[] stackMemory = new byte[4096]; // - 0x7000 - 0x8000
@@ -26,14 +27,14 @@ public class Emulator {
     protected static byte stackPointer;
     protected static short programCounter;
     protected int zeroFlag;
-    protected int signFlag;
+    protected int negativeFlag;
     protected int overflowFlag;
     protected int breakFlag;
     protected int decimalFlag;
     protected int interruptFlag;
     protected int carryFlag;
     
-    protected int romSize = 0;
+    protected short romSize = 0;
     
     public Emulator(){
         initEmulator();
@@ -60,17 +61,18 @@ public class Emulator {
         accumulator = 0x00;
         xRegister = 0x00;
         yRegister = 0x00;
-        stackPointer = 0x00;
+        stackPointer = (byte)0xFF;
         programCounter = 0x00;
         statusRegister = 0x20;
-        zeroFlag = signFlag = overflowFlag = breakFlag = decimalFlag = interruptFlag = carryFlag = 0;
+        zeroFlag = negativeFlag = overflowFlag = breakFlag = decimalFlag = carryFlag = 0;
+        interruptFlag = 1;
     }
     
     public void loadBinary(File f){
         try{
             byte[] data = Files.readAllBytes(f.toPath());
             System.arraycopy(data, 0, rom, 0, data.length);
-            romSize = data.length;
+            romSize = (short)data.length;
             //for (int x =0; x<data.length; x++){
             //    System.out.println("Loaded ROM with " + rom[x]);
             //}
@@ -93,9 +95,9 @@ public class Emulator {
     
     private void processFlags(short uResult, byte sResult){
         if (uResult > 127) {
-            signFlag = 1;
+            negativeFlag = 1;
         }else{
-            signFlag = 1;
+            negativeFlag = 1;
         }
         if (uResult > 255) {
             carryFlag = 1;
@@ -119,7 +121,9 @@ public class Emulator {
     }
     
     // Reads and returns the byte stored in a memory address
-    private static byte readMemory(short address){
+    public static byte readMemory(short address){
+        return(ram[address]);
+        /*
         if (address < 0x6C00){
             return(ram[address]);
         }else if(address < 0x7000){
@@ -129,6 +133,7 @@ public class Emulator {
         }else{
             return(rom[address-0x8000]);
         }
+        */
     }
     
     // Returns the memory address based on Address Mode
@@ -253,17 +258,37 @@ public class Emulator {
     // back to the accumulator
     // Modifies carryFlag (1 if carry was needed)
     //          zeroFlag if result was zero
-    //          signFlag if sign bit was set
+    //          negativeFlag if sign bit was set
     //          overFlowFlag if addition caused overflow
     private void ADC(byte b){
         // get temporary result and check for carry
+        /*
         short x = (short)(carryFlag + accumulator + byteToUnsigned(b));
         carryFlag = (x > 255) ? 1 : 0;
         
         accumulator += carryFlag + byteToUnsigned(b);
         zeroFlag = (accumulator == 0) ? 0 : 1;
-        signFlag = (accumulator & 0x80) >> 7;
+        negativeFlag = (accumulator & 0x80) >> 7;
         overflowFlag = (accumulator & 0x40) >> 6;
+        */
+        //_memTemp = _mem[++_PC.Contents];
+        short x = (byte)(accumulator + b + getCarryFlag()); //_SR[_BIT0_SR_CARRY];
+        if (getDecimalFlag() == 1)
+        {
+          if (((accumulator ^ b ^ x) & 0x10) == 0x10)
+          {
+            x += 0x06;
+          }
+          if ((x & 0xf0) > 0x90)
+          {
+            x += 0x60;
+          }
+        }
+        overflowFlag = ((accumulator ^ x) & (b ^ x) & 0x80) == 0x80 ? 1 : 0;
+        carryFlag = (x & 0x100) == 0x100 ? 1 : 0;
+        setZeroFlag(xRegister);
+        negativeFlag = (accumulator & 0x80) >> 7;
+        accumulator = (byte)(x & 0xff);
     }
     
     // SuBtract with Carry instruction
@@ -273,7 +298,7 @@ public class Emulator {
     // Modifies 
     //          carryFlag (1 if carry was needed)
     //          zeroFlag if result was zero
-    //          signFlag if sign bit was set
+    //          negativeFlag if sign bit was set
     //          overFlowFlag if addition caused overflow
     private void SBC(byte b){
         // get temporary result and check for carry
@@ -281,13 +306,16 @@ public class Emulator {
         // TODO: MAKE THIS THE REAL SBC INSTRUCTION
         // In fact, make sure ADC is good too.  Check this out:
         // https://stackoverflow.com/questions/29193303/6502-emulation-proper-way-to-implement-adc-and-sbc
+        /*
         short x = (short)(carryFlag + accumulator + byteToUnsigned(b));
         carryFlag = (x > 255) ? 1 : 0;
         
         accumulator += carryFlag + byteToUnsigned(b);
         zeroFlag = (accumulator == 0) ? 0 : 1;
-        signFlag = (accumulator & 0x80) >> 7;
+        negativeFlag = (accumulator & 0x80) >> 7;
         overflowFlag = (accumulator & 0x40) >> 6;
+        */
+        ADC((byte)~b);
     }
     
     // Arithmetic Shift Left
@@ -295,12 +323,12 @@ public class Emulator {
     // Modifles: 
     //          carryFlag (1 if bit 1 is set)
     //          zeroFlag (if shift results in 0)
-    //          signFlag (if sign bit is set)
+    //          negativeFlag (if sign bit is set)
     private void ASL(short addr){
-        carryFlag = (ram[addr] & 0x01);// is bit 1 set? if so it goes into carry
+        carryFlag = (ram[addr] & 0b1000000);// is bit 1 set? if so it goes into carry
         ram[addr] = (byte) (ram[addr] << 1);// shift the number left
-        zeroFlag = (ram[addr] == 0) ? 0 : 1;
-        signFlag = (ram[addr] & 0x80) >> 7;
+        setZeroFlag(ram[addr]);
+        negativeFlag = (ram[addr] & 0x80) >> 7;
     }
     
     // Logical Shift Right
@@ -308,12 +336,12 @@ public class Emulator {
     // Modifies:
     //          carryFlag (1 if bit was was originally set)
     //          zeroFlag (if result was 0)
-    //          signFlag always set to 0
+    //          negativeFlag always set to 0
     private void LSR(short addr){
         carryFlag = (ram[addr] & 0x01);// is bit 1 set? if so it goes into carry
         ram[addr] = (byte) (ram[addr] >> 1);
-        zeroFlag = (ram[addr] == 0) ? 0 : 1;
-        signFlag = 0;
+        setZeroFlag(ram[addr]);
+        negativeFlag = 0;
     }
     
     // Rotate Left
@@ -323,12 +351,13 @@ public class Emulator {
     // Modifies:
     //          carryFlag (set to old bit 7)
     //          zeroFlag (if result was 0)
-    //          signFlag (set equal to bit 7 of result)
+    //          negativeFlag (set equal to bit 7 of result)
     private void ROL(short addr){
         carryFlag = (ram[addr] & 0x80) >> 7;// is bit 7 set? if so it goes into carry
         ram[addr] = (byte) (ram[addr] << 1);
-        ram[addr] += carryFlag; // put the carry into bit 0
-        zeroFlag = (ram[addr] == 0) ? 0 : 1;
+        ram[addr] += getCarryFlag(); // put the carry into bit 0
+        setZeroFlag(ram[addr]);
+        negativeFlag = (ram[addr] & 0x80) >> 7;
     }
     
     // Rotate Right
@@ -338,14 +367,15 @@ public class Emulator {
     // Modifies:
     //          carryFlag (set to old bit 0)
     //          zeroFlag (set if accumulator is 0)
-    //          signFlag (set if bit 7 or result is set)
+    //          negativeFlag (set if bit 7 or result is set)
     private void ROR(short addr){
         //byte oldCarry = (byte)carryFlag; // old carry flag goes into bit 7 
-        byte oldCarry = (byte)((carryFlag == 1) ? 0x80: 0x00); // old carry flag goes into bit 7 
+        byte oldCarry = (byte)((getCarryFlag() == 1) ? 0x80: 0x00); // old carry flag goes into bit 7 
         carryFlag = (ram[addr] & 0x01);// is bit 0 set? if so it goes into carry
         ram[addr] = (byte) (ram[addr] >> 1);
         ram[addr] = (byte) (ram[addr] & oldCarry); // 0x80); WRONG
-        zeroFlag = (ram[addr] == 0) ? 0 : 1;
+        setZeroFlag(ram[addr]);
+        negativeFlag = (ram[addr] & 0x80) >> 7;
     }
     
     // Logical Inclusive OR
@@ -353,11 +383,11 @@ public class Emulator {
     // using the contents of a byte of memory.
     // Modifies:
     //          zeroFlag (set if Accumulator = 0)
-    //          signFlag (set if bit 7 is set)
+    //          negativeFlag (set if bit 7 is set)
     private void ORA(byte b){
         accumulator = (byte) (accumulator | b);
-        zeroFlag = (accumulator == 0) ? 0 : 1;
-        signFlag = (accumulator & 0x80) >> 7;
+        setZeroFlag(accumulator);
+        negativeFlag = (accumulator & 0x80) >> 7;
     }
     
     // Logical Inclusive AND
@@ -365,11 +395,11 @@ public class Emulator {
     // using the contents of a byte of memory.
     // Modifies:
     //          zeroFlag (set if Accumulator = 0)
-    //          signFlag (set if bit 7 is set)
+    //          negativeFlag (set if bit 7 is set)
     private void AND(byte b){
         accumulator = (byte) (accumulator & b);
-        zeroFlag = (accumulator == 0) ? 0 : 1;
-        signFlag = (accumulator & 0x80) >> 7;
+        setZeroFlag(accumulator);
+        negativeFlag = (accumulator & 0x80) >> 7;
     }
     
     // This instructions is used to test if one or more bits are set in a 
@@ -379,11 +409,11 @@ public class Emulator {
     // Modifies:
     //          zeroFlag (set if result of AND is zero)
     //          overflowFlag (set to bit 6 of memory location)
-    //          signFlag (set to bit 7 of memory location)
+    //          negativeFlag (set to bit 7 of memory location)
     private void BIT(byte b){
         byte result = (byte) (accumulator & b);
-        zeroFlag = (result == 0) ? 0 : 1;
-        signFlag = (b & 0x80) >> 7;
+        setZeroFlag(result);
+        negativeFlag = (b & 0x80) >> 7;
         overflowFlag = (b & 0x40) >> 6;
     }
     
@@ -392,14 +422,15 @@ public class Emulator {
     // using the contents of a byte of memory.
     // Modifies:
     //          zeroFlag (set if Accumulator = 0)
-    //          signFlag (set if bit 7 is set)
+    //          negativeFlag (set if bit 7 is set)
     private void EOR(byte b){
         accumulator = (byte) (accumulator ^ b);
-        zeroFlag = (accumulator == 0) ? 0 : 1;
-        signFlag = (accumulator & 0x80) >> 7;
+        setZeroFlag(accumulator);
+        negativeFlag = (accumulator & 0x80) >> 7;
     }
     
     public void compare(byte a, byte b){
+        /*
         carryFlag = 0;
         zeroFlag = 0;
         if (a == b){
@@ -408,6 +439,21 @@ public class Emulator {
         }else if (a > b){
             carryFlag = 1;
         }
+        */
+        byte t = (byte)(a - b);
+        setNegativeFlag(t);
+        setZeroFlag(t);
+        carryFlag = (a >= b) ? 1:0;
+    }
+    
+    public void setZeroFlag(byte test){
+        System.out.println("Setting Zero Flag");
+        zeroFlag = (test == 0) ? 1 : 0;
+        System.out.println("To " + getZeroFlag());
+    }
+    
+    public void setNegativeFlag(byte test){
+        negativeFlag = (test & 0x80) >> 7;
     }
     
     public void performInstruction(){
@@ -417,6 +463,7 @@ public class Emulator {
         switch(byteToUnsigned(rom[programCounter++])){
             case 0x00: // BRK - break
                 // implement a break/listener in the emulator
+                programCounter = (short)(romSize + 1);
                 break;
             case 0x01: // ORA - OR Accumulator, indirect X
                 addr = getMemoryAddress(AddressMode.INDIRECT_X);
@@ -433,6 +480,10 @@ public class Emulator {
                 ASL(addr);
                 programCounter++;
                 break;
+            case 0x08: // PHP - Push Processor Status - push status flags onto stack
+                stackPush(statusFlagsToByte());
+                programCounter++;
+                break;
             case 0x09: // ORA immediate
                 byte val = resolveImmediate(); // (byte)(byteToUnsigned(rom[programCounter]));
                 ORA(val);
@@ -441,8 +492,8 @@ public class Emulator {
             case 0x0A: // ASL accumulator
                 carryFlag = (accumulator & 0x80) >> 7;// is bit 7 set? if so it goes into carry
                 accumulator = (byte)(accumulator << 1);
-                zeroFlag = (accumulator == 0) ? 0 : 1;
-                signFlag = (accumulator & 0x80) >> 7;
+                setZeroFlag(accumulator);
+                setNegativeFlag(accumulator);
                 break;
             case 0x0D: // ORA absolute
                 ORA(resolveAbsolute(rom[programCounter++],rom[programCounter]));
@@ -454,7 +505,7 @@ public class Emulator {
                 programCounter++;
                 break;
             case 0x10: // BPL - branch on plus
-                if (signFlag == 0){
+                if (getNegativeFlag() == 0){
                     programCounter = (short) (programCounter + rom[programCounter]);
                 }else{
                     programCounter++;
@@ -493,10 +544,10 @@ public class Emulator {
                 programCounter++;
                 break;
             case 0x20: // JSR - jump to subroutine
-                addr = getAbsoluteAddr();
+                addr = getAbsoluteAddr(); // gets the address to JuMP to (where the function is)
                 System.out.println("JSR to " + addr);
-                pushAddr(programCounter);
-                programCounter = addr;
+                pushAddr((short)(programCounter-0)); // push current code location onto stack
+                programCounter = addr; // change to new code location
                 break;
             case 0x21: // AND, indirect X
                 AND(resolveIndirectX(rom[programCounter]));
@@ -518,11 +569,16 @@ public class Emulator {
                 AND(rom[programCounter]);
                 programCounter++;
                 break;
+            case 0x28: // PLP - Pull Processor status - pull from stack and set processor flags
+                byteToStatusFlags(stackPop());
+                programCounter++;
+                break;
             case 0x2A: // ROL accumulator
                 carryFlag = (accumulator & 0x80) >> 7;// is bit 7 set? if so it goes into carry
                 accumulator = (byte) (accumulator << 1);
-                accumulator += carryFlag; // put the carry into bit 0
-                zeroFlag = (accumulator == 0) ? 0 : 1;
+                accumulator += getCarryFlag(); // put the carry into bit 0
+                setZeroFlag(accumulator);
+                setNegativeFlag(accumulator);
                 break;
             case 0x2C: // BIT absolute
                 BIT(resolveAbsolute(rom[programCounter++],rom[programCounter]));
@@ -536,7 +592,13 @@ public class Emulator {
                 ROL(resolveAbsolute(rom[programCounter++],rom[programCounter]));
                 programCounter++;
                 break;
-            case 0x30:
+            case 0x30: // BMI - branch if negative set
+                if (getNegativeFlag() != 0){
+                    programCounter = (short)(programCounter + rom[programCounter]);//byteToUnsigned(rom[programCounter]);
+                }else{
+                    programCounter++;
+                }
+                break;
             case 0x31: // AND, indirect Y
                 AND(resolveIndirectY(rom[programCounter]));
                 programCounter++;
@@ -581,7 +643,10 @@ public class Emulator {
                 LSR(rom[programCounter]);
                 programCounter++;
                 break;
-            case 0x48: // PHA
+            case 0x48: // PHA - push copy of accumulator onto the stack
+                stackPush(accumulator);
+                programCounter++;
+                break;
             case 0x49: // EOR immediate
                 EOR(rom[programCounter]);
                 programCounter++;
@@ -589,8 +654,8 @@ public class Emulator {
             case 0x4A: // LSR accumulator
                 carryFlag = (accumulator & 0x01);// is bit 0 set? if so it goes into carry
                 accumulator = (byte) (accumulator >> 1);
-                zeroFlag = (accumulator == 0) ? 0 : 1;
-                signFlag = 0;
+                setZeroFlag(accumulator);
+                negativeFlag = 0;
                 break;
             case 0x4C: // JMP absolute
                 programCounter = resolveAbsolute(rom[programCounter++],rom[programCounter]);
@@ -603,7 +668,13 @@ public class Emulator {
                 LSR(resolveAbsolute(rom[programCounter++],rom[programCounter]));
                 programCounter++;
                 break;
-            case 0x50: // BVC relative
+            case 0x50: // BVC - branch if Overflow Clear
+                if (getOverflowFlag() == 0){
+                    programCounter = (short)(programCounter + rom[programCounter]);//byteToUnsigned(rom[programCounter]);
+                }else{
+                    programCounter++;
+                }
+                break;
             case 0x51: // EOR indirect Y
                 EOR(resolveIndirectY(rom[programCounter]));
                 programCounter++;
@@ -636,28 +707,41 @@ public class Emulator {
                 LSR(addr);
                 programCounter++;
                 break;
+            case 0x60: // RTS return from subroutine
+                byte high = stackPop(); // remove previous memory address from stack
+                byte low = stackPop(); // (it's two bytes, by the way)
+                addr = bytesToAddr(low, high);
+                programCounter = addr; // Change the address back to the old one
+                programCounter++;
+                break;
             case 0x61: // ADC indirect X
                 ADC(resolveIndirectX(rom[programCounter]));
                 programCounter++;
                 break;
             case 0x65: // ADC zero-page
-                ADC(rom[programCounter]);
+                ADC(ram[rom[programCounter]]);
                 programCounter++;
                 break;
             case 0x66: // ROR zero-page
                 ROR(rom[programCounter]);
                 programCounter++;
                 break;
+            case 0x68: // PLA pull accumulator - pull 8 bit value from stack into accumulator
+                accumulator = stackPop();
+                setZeroFlag(accumulator);
+                setNegativeFlag(accumulator);
+                break;
             case 0x69: // ADC immediate
                 ADC(rom[programCounter]);
                 programCounter++;
                 break;
             case 0x6A: // ROR accumulator
-                byte oldCarry = (byte)((carryFlag == 1) ? 0x80: 0x00); // old carry flag goes into bit 7 
+                byte oldCarry = (byte)((getCarryFlag() == 1) ? 0x80: 0x00); // old carry flag goes into bit 7 
                 carryFlag = (accumulator & 0x01);// is bit 0 set? if so it goes into carry
                 accumulator = (byte) (accumulator >> 1);
                 accumulator = (byte) (accumulator ^ oldCarry); // 0x80);
-                zeroFlag = (accumulator == 0) ? 0 : 1;
+                setZeroFlag(accumulator);
+                setNegativeFlag(accumulator);
                 break;
             case 0x6D:// ADC, absolute
                 ADC(resolveAbsolute(rom[programCounter++],rom[programCounter]));
@@ -666,6 +750,13 @@ public class Emulator {
             case 0x6E: // ROR absolute
                 ROR(resolveAbsolute(rom[programCounter++],rom[programCounter]));
                 programCounter++;
+                break;
+            case 0x70: // BVS - branch if Overflow Set
+                if (getOverflowFlag() != 0){
+                    programCounter = (short)(programCounter + rom[programCounter]);//byteToUnsigned(rom[programCounter]);
+                }else{
+                    programCounter++;
+                }
                 break;
             case 0x71: // ADC indirect Y
                 ADC(resolveIndirectY(rom[programCounter]));
@@ -723,15 +814,15 @@ public class Emulator {
                 break;
             case 0x88: // DEY - decrement Y register, implied
                 yRegister--;
-                zeroFlag = (yRegister == 0) ? 1:0;
-                signFlag = yRegister & 0x80;
-                programCounter++;
+                setZeroFlag(yRegister);
+                setNegativeFlag(yRegister);
+                //programCounter++;
                 break;
             case 0x8A: // TXA - copy of X register to accumulator and set flags
                 accumulator = xRegister;
-                programCounter++;
-                signFlag = accumulator & 0x80;
-                zeroFlag = ~accumulator;
+                //programCounter++;
+                setNegativeFlag(accumulator);
+                setZeroFlag(accumulator);
                 break;
             case 0x8C: // STY absolute
                 addr = getAbsoluteAddr();
@@ -747,6 +838,13 @@ public class Emulator {
                 addr = getAbsoluteAddr();
                 ram[addr] = xRegister;
                 programCounter++;
+                break;
+            case 0x90: // BCC - branch if carry clear
+                if (getCarryFlag() == 0){
+                    programCounter = (short)(programCounter + rom[programCounter]);//byteToUnsigned(rom[programCounter]);
+                }else{
+                    programCounter++;
+                }
                 break;
             case 0x91: // STA - indirect Y
                 addr = getIndirectYAddr();
@@ -770,9 +868,9 @@ public class Emulator {
                 break;
             case 0x98: // TYA - copy of Y register to accumulator and set flags
                 accumulator = yRegister;
-                programCounter++;
-                signFlag = accumulator & 0x80;
-                zeroFlag = ~accumulator;
+                //programCounter++;
+                setNegativeFlag(accumulator);
+                setZeroFlag(accumulator);
                 break;
             case 0x99: // STA - absolute Y
                 addr = getAbsoluteYAddr();
@@ -791,116 +889,123 @@ public class Emulator {
             case 0xA0: // LDY - immediate
                 yRegister = rom[programCounter];
                 programCounter++;
-                signFlag = yRegister & 0x80;
-                zeroFlag = ~yRegister;
+                setNegativeFlag(yRegister);
+                setZeroFlag(yRegister);
                 break;
             case 0xA1: // LDA - load accumulator, indirect X
                 accumulator = resolveIndirectX(rom[programCounter]);
                 programCounter++;
-                signFlag = accumulator & 0x80;
-                zeroFlag = ~accumulator;
+                setNegativeFlag(accumulator);
+                setZeroFlag(accumulator);
                 break;
             case 0xA2: // LDX - immediate
                 System.out.println("PC " + programCounter);
                 System.out.println("LDX immediate");
                 xRegister = rom[programCounter];
                 programCounter++;
-                signFlag = xRegister & 0x80;
-                zeroFlag = ~xRegister;
+                setNegativeFlag(xRegister);
+                setZeroFlag(xRegister);
                 break;
             case 0xA4: // LDY - zero page
                 yRegister = ram[rom[programCounter]];
                 programCounter++;
-                signFlag = yRegister & 0x80;
-                zeroFlag = ~yRegister;
+                setNegativeFlag(yRegister);
+                setZeroFlag(yRegister);
                 break;
             case 0xA5: // LDA - load accumulator, zero page
                 addr = getZeroPageAddr();
                 accumulator = ram[addr];
                 programCounter++;
-                signFlag = accumulator & 0x80;
-                zeroFlag = ~accumulator;
+                setNegativeFlag(accumulator);
+                setZeroFlag(accumulator);
                 break;
             case 0xA6: // LDX - load X register, zero page
                 addr = byteToUnsigned(rom[programCounter]);
                 xRegister = ram[addr];
                 programCounter++;
-                signFlag = xRegister & 0x80;
-                zeroFlag = ~xRegister;
+                setNegativeFlag(xRegister);
+                setZeroFlag(xRegister);
                 break;
             case 0xA8: // TAY - copy accumulator to y register and set flags
                 yRegister = accumulator;
-                programCounter++;
-                signFlag = yRegister & 0x80;
-                zeroFlag = ~yRegister;
+                //programCounter++;
+                setNegativeFlag(yRegister);
+                setZeroFlag(yRegister);
                 break;
             case 0xA9: // LDA immediate
                 System.out.println("PC: " + programCounter);
                 System.out.println("LDA immediate");
                 accumulator = rom[programCounter];
                 programCounter++;
-                signFlag = accumulator & 0x80;
-                zeroFlag = ~accumulator;
+                setNegativeFlag(accumulator);
+                setZeroFlag(accumulator);
                 break;
             case 0xAA: // TAX - copy accumulator to X register and set flags
                 xRegister = accumulator;
-                programCounter++;
-                signFlag = xRegister & 0x80;
-                zeroFlag = ~xRegister;
+                //programCounter++;
+                setNegativeFlag(xRegister);
+                setZeroFlag(xRegister);
                 break;
             case 0xAC:// LDY - absolute
                 addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]));
                 yRegister = ram[addr];
                 programCounter++;
-                signFlag = yRegister & 0x80;
-                zeroFlag = ~yRegister;
+                setNegativeFlag(yRegister);
+                setZeroFlag(yRegister);
                 break;
             case 0xAD:// LDA - absolute
                 addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]));
                 accumulator = ram[addr];
                 programCounter++;
-                signFlag = accumulator & 0x80;
-                zeroFlag = ~accumulator;
+                setNegativeFlag(accumulator);
+                setZeroFlag(accumulator);
                 break;
             case 0xAE:// LDX - absolute
                 addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]));
                 xRegister = ram[addr];
                 programCounter++;
-                signFlag = xRegister & 0x80;
-                zeroFlag = ~xRegister;
+                setNegativeFlag(xRegister);
+                setZeroFlag(xRegister);
+                break;
+            case 0xB0: // BCS - branch if carry set
+                if (getCarryFlag() != 0){
+                    programCounter = (short)(programCounter + rom[programCounter]);//byteToUnsigned(rom[programCounter]);
+                }else{
+                    programCounter++;
+                }
                 break;
             case 0xB1:// LDA - indirect Y
                 accumulator = resolveIndirectY(rom[programCounter]);
                 programCounter++;
-                signFlag = accumulator & 0x80;
-                zeroFlag = ~accumulator;
+                setNegativeFlag(accumulator);
+                setZeroFlag(accumulator);
                 break;
             case 0xB4: // LDY - zero page, X
                 addr = (short)(rom[programCounter] + xRegister);
                 yRegister = ram[addr];
                 programCounter++;
-                signFlag = yRegister & 0x80;
-                zeroFlag = ~yRegister;
+                setNegativeFlag(yRegister);
+                setZeroFlag(yRegister);
                 break;
             case 0xB5: // LDA - zero page, X
                 addr = (short)(rom[programCounter] + xRegister);
                 accumulator = ram[addr];
                 programCounter++;
-                signFlag = accumulator & 0x80;
-                zeroFlag = ~accumulator;
+                setNegativeFlag(accumulator);
+                setZeroFlag(accumulator);
                 break;
             case 0xB6: // LDX - zero page, Y
                 addr = (short)(rom[programCounter] + yRegister);
                 xRegister = ram[addr];
                 programCounter++;
-                signFlag = xRegister & 0x80;
-                zeroFlag = ~xRegister;
+                negativeFlag = xRegister & 0x80;
+                setZeroFlag(xRegister);
                 break;
             case 0xBA: // TSX - copy stack pointer to X register and set flags
                 xRegister = stackPointer;
                 programCounter++;
-                signFlag = xRegister & 0x80;
-                zeroFlag = ~xRegister;
+                setNegativeFlag(xRegister);
+                setZeroFlag(xRegister);
             case 0xB8: // CLV - clear overflow
                 overflowFlag = 0;
                 break;
@@ -908,29 +1013,29 @@ public class Emulator {
                 addr = resolveAbsoluteY(rom[programCounter++], rom[programCounter]);
                 accumulator = ram[addr];
                 programCounter++;
-                signFlag = accumulator & 0x80;
-                zeroFlag = ~accumulator;
+                setNegativeFlag(accumulator);
+                setZeroFlag(accumulator);
                 break;
             case 0xBC:// LDY - absolute X
                 addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]) + xRegister);
                 yRegister = ram[addr];
                 programCounter++;
-                signFlag = yRegister & 0x80;
-                zeroFlag = ~yRegister;
+                setNegativeFlag(yRegister);
+                setZeroFlag(yRegister);
                 break;
             case 0xBD: // LDA - absolute X
                 addr = resolveAbsoluteX(rom[programCounter++], rom[programCounter]);
                 accumulator = ram[addr];
                 programCounter++;
-                signFlag = accumulator & 0x80;
-                zeroFlag = ~accumulator;
+                setNegativeFlag(accumulator);
+                setZeroFlag(accumulator);
                 break;
             case 0xBE: // LDX - absolute Y
                 addr = resolveAbsoluteY(rom[programCounter++], rom[programCounter]);
                 xRegister = ram[addr];
                 programCounter++;
-                signFlag = xRegister & 0x80;
-                zeroFlag = ~xRegister;
+                setNegativeFlag(xRegister);
+                setZeroFlag(xRegister);
                 break;
             case 0xC0: // CPY - compare Y register, immediate mode
                 compare(yRegister, rom[programCounter]);
@@ -942,7 +1047,7 @@ public class Emulator {
                 break;
             case 0xC4: // CPY - compare Y register, zero page
                 compare(yRegister, ram[rom[programCounter]]);
-                programCounter++;
+                //programCounter++;
                 programCounter++;
                 break;
             case 0xC5: // CMP - compare Accumulator, zero page
@@ -959,14 +1064,14 @@ public class Emulator {
                 break;
             case 0xC8: // INY - increment y Register, implied
                 yRegister++;
-                signFlag = xRegister & 0x80;
-                zeroFlag = ~xRegister;
+                setNegativeFlag(yRegister);
+                setZeroFlag(yRegister);
                 break;
             case 0xCA: // DEX - decrement X register, implied
                 xRegister--;
-                signFlag = xRegister & 0x80;
-                zeroFlag = ~xRegister;
-                programCounter++;
+                setNegativeFlag(xRegister);
+                setZeroFlag(xRegister);
+                //programCounter++;
                 break;
             case 0xCC: // CPY - compare Y register, absolute
                 addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]));
@@ -982,6 +1087,13 @@ public class Emulator {
                 addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]));
                 programCounter++;
                 compare(accumulator, ram[addr]);
+                break;
+            case 0xD0: // BNE - branch if Not Equal (zeroFlag is clear)
+                if (getZeroFlag() == 0){
+                    programCounter = (short)(programCounter + rom[programCounter]);//byteToUnsigned(rom[programCounter]);
+                }else{
+                    programCounter++;
+                }
                 break;
             case 0xD1: // CMP - compare Accumulator, indirect Y
                 compare(accumulator, resolveIndirectY(rom[programCounter]));
@@ -1022,9 +1134,9 @@ public class Emulator {
                 break;
             case 0xE6: // INC - increment memory address, zero page
                 ram[rom[programCounter]]++;
+                setNegativeFlag(ram[rom[programCounter]]);
+                setZeroFlag(ram[rom[programCounter]]);
                 programCounter++;
-                signFlag = xRegister & 0x80;
-                zeroFlag = ~xRegister;
                 break;
             case 0xEC: // CPX - compare X register, absolute
                 addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]));
@@ -1033,8 +1145,8 @@ public class Emulator {
                 break;
             case 0xE8: // INX - increment X register, implied mode
                 xRegister++;
-                signFlag = xRegister & 0x80;
-                zeroFlag = ~xRegister;
+                setNegativeFlag(xRegister);
+                setZeroFlag(xRegister);
                 break;
             case 0xEA: // NOP - no changes other than incrementing program counter
                 programCounter++;
@@ -1042,15 +1154,23 @@ public class Emulator {
             case 0xEE: // INC - increment memory address, Absolute
                 addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]));
                 ram[addr]++;
+                setNegativeFlag(ram[addr]);
+                setZeroFlag(ram[addr]);
                 programCounter++;
-                signFlag = xRegister & 0x80;
-                zeroFlag = ~xRegister;
+                break;
+            case 0xF0: // BEQ - branch if equal (zeroFlag set)
+                if (getZeroFlag() != 0){
+                    programCounter = (short)(programCounter + rom[programCounter]);//byteToUnsigned(rom[programCounter]);
+                }else{
+                    programCounter++;
+                }
                 break;
             case 0xF6: // INC - increment memory address, zero page, X
-                ram[(short)rom[programCounter] + xRegister]++;
+                addr = (short)(rom[programCounter] + xRegister);
+                ram[addr]++;
+                setNegativeFlag(ram[addr]);
+                setZeroFlag(ram[addr]);
                 programCounter++;
-                signFlag = xRegister & 0x80;
-                zeroFlag = ~xRegister;
                 break;
             case 0xF8: // SED - set decimal flag
                 decimalFlag = 1;
@@ -1058,9 +1178,9 @@ public class Emulator {
             case 0xFE: // INC - increment memory address, Absolute X
                 addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]) + xRegister);
                 ram[addr]++;
+                setNegativeFlag(ram[addr]);
+                setZeroFlag(ram[addr]);
                 programCounter++;
-                signFlag = xRegister & 0x80;
-                zeroFlag = ~xRegister;
                 break;
             default:
                 System.out.println("invalid instruction");
@@ -1069,23 +1189,62 @@ public class Emulator {
         }
     }
     
+    
+    protected byte statusFlagsToByte(){
+        byte statusFlags = (byte)0b00110000;
+        if (getNegativeFlag() == 1){
+            statusFlags = (byte)(statusFlags & 0b10000000);
+        }
+        if (getOverflowFlag() == 1){
+            statusFlags = (byte)(statusFlags & 0b01000000);
+        }
+        if (getDecimalFlag() == 1){
+            statusFlags = (byte)(statusFlags & 0b00001000);
+        }
+        if (getInterruptFlag() == 1){
+            statusFlags = (byte)(statusFlags & 0b00000100);
+        }
+        if (getZeroFlag() == 1){
+            statusFlags = (byte)(statusFlags & 0b00000010);
+        }
+        if (getCarryFlag() == 1){
+            statusFlags = (byte)(statusFlags & 0b00000001);
+        }
+        return(statusFlags);
+    }
+    
+    private void byteToStatusFlags(byte b){
+        negativeFlag = b >> 7;
+        overflowFlag = (b & 0b01000000) >> 7;
+        decimalFlag = (b & 0b00001000) >> 7;
+        interruptFlag = (b & 0b00000100) >> 7;
+        zeroFlag = (b & 0b00000010) >> 7;
+        carryFlag = (b & 0b00000001) >> 7;
+    }
+    
     // 1101 0111 1000 0010
-    private static void pushAddr(short addr){
+    private void pushAddr(short addr){
         byte low = (byte)((addr & 0xFF00) >> 8);
         byte high = (byte)(addr & 0x00FF);
         stackPush(low);
         stackPush(high);
     }
     
-    private static void stackPush(byte b){
+    // pushes a byte onto the 6502 stack
+    // the stack grows down from 0x01FF to 0x0100
+    // The 6502 keeps the stackpointer at the next available element
+    // so it has to decrement the pointer AFTER pushing and BEFORE pulling
+    private void stackPush(byte b){
         System.out.println("Pushing " + b + " onto the stack");
-        stackPointer++;
-        stackMemory[stackPointer] = b;
+        //stackMemory[stackPointer] = b;
+        ram[STACK_START+stackPointer] = b;
+        stackPointer--;
     }
     
-    private static byte stackPop(){
-        byte b = stackMemory[stackPointer];
-        stackPointer--; // Why was this not here?  Maybe it's not supposed to be?
+    private byte stackPop(){
+        stackPointer++;
+        byte b = ram[STACK_START+stackPointer];
+        //byte b = stackMemory[stackPointer];
         return(b);
     }
     
@@ -1099,6 +1258,55 @@ public class Emulator {
     
     public static void main(String[] args) {
         //System.out.println("OpCode 0xA9 = " + codes.getInstruction(0xA9).getInstruction());
+    }
+
+    /**
+     * @return the zeroFlag
+     */
+    public int getZeroFlag() {
+        return zeroFlag;
+    }
+
+    /**
+     * @return the negativeFlag
+     */
+    public int getNegativeFlag() {
+        return negativeFlag;
+    }
+
+    /**
+     * @return the overflowFlag
+     */
+    public int getOverflowFlag() {
+        return overflowFlag;
+    }
+
+    /**
+     * @return the breakFlag
+     */
+    public int getBreakFlag() {
+        return breakFlag;
+    }
+
+    /**
+     * @return the decimalFlag
+     */
+    public int getDecimalFlag() {
+        return decimalFlag;
+    }
+
+    /**
+     * @return the interruptFlag
+     */
+    public int getInterruptFlag() {
+        return interruptFlag;
+    }
+
+    /**
+     * @return the carryFlag
+     */
+    public int getCarryFlag() {
+        return carryFlag;
     }
     
 }

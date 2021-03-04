@@ -14,11 +14,14 @@ import javax.swing.JTextArea;
 public class GUIEmulator extends Emulator{
     private EmuScreen screenPanel;
     private RegisterPanel registerPanel;
+    protected MemoryWindow memoryWindow;
 
     public GUIEmulator() {
         super();
         screenPanel = new EmuScreen();
-        registerPanel = new RegisterPanel();
+        registerPanel = new RegisterPanel(this);
+        memoryWindow = new MemoryWindow("Memory Contents", this);
+        updateRegisterPanel();
     }
 
     @Override
@@ -32,6 +35,7 @@ public class GUIEmulator extends Emulator{
         super.performInstruction();
         //updateScreen();
         updateRegisterPanel();
+        memoryWindow.setMemTable();
     }
 
     public void updateScreen(){
@@ -42,7 +46,9 @@ public class GUIEmulator extends Emulator{
         registerPanel.setAccumulator(accumulator);
         registerPanel.setxRegister(xRegister);
         registerPanel.setyRegister(yRegister);
-        registerPanel.setFlags(statusRegister);
+        //byte flags = (byte)(byteToUnsigned(statusFlagsToByte()));
+        //registerPanel.setFlags(flags);
+        registerPanel.setFlags(statusFlagsToByte());
         registerPanel.setStackPointer(stackPointer);
         registerPanel.setProgramCounter(programCounter);
     }

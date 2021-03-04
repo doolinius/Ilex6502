@@ -54,6 +54,7 @@ public class Ilex6502{
         JMenu fileMenu = new JMenu("File");
         JMenuItem newItem = new JMenuItem("New ASM File");
         JMenuItem openItem = new JMenuItem("Open...");
+        JMenuItem openRecent = new JMenuItem("Open Recent");
         JMenuItem saveItem = new JMenuItem("Save");
         JMenuItem saveAsItem = new JMenuItem("Save As...");
         JMenuItem exitItem = new JMenuItem("Exit");

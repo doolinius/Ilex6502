@@ -357,9 +357,24 @@ public class Assembler {
             operand = symbolTable.get(line.getOperand()).getValue();
             System.out.println("P2 Process: got instruction operand " + operand);
             if (line.getMode() == AddressMode.RELATIVE){
-                int opInt = Integer.parseInt(operand,16);
-                int diff = opInt - line.getLc();
-                operand = String.format("%02x",Integer.toHexString(diff & 0x000000FF));
+                System.out.println("Branch operand: " + operand);
+                String hexOperand = num2hex(operand, line.getMode().size());
+                System.out.println("Hex operand: " + hexOperand);
+                int opInt = Integer.parseInt(hexOperand,16);
+                System.out.println("Integer operand: " + opInt);
+                //byte operandByte = Byte.parseByte(operand, 16);
+                int memLocation = symbolTable.get(line.getOperand()).getLocation();
+                int diff = memLocation - opInt; //  - memLocation;
+                byte diffByte = 0;
+                if ((diff < -126) || (diff > 129)){
+                    //System.err.println("RELATIVE Address Mode operand must be between -126 and 129");
+                    throw(new Exception("RELATIVE Address Mode operand must be between -126 and 129"));
+                }else{
+                    diffByte = (byte)diff;
+                }
+                System.out.println("Difference between " + opInt + " and " + memLocation + " is " + diffByte);
+                operand = String.format("%02x",diffByte);
+                System.out.println("New Operand: " + operand);
             }else if(line.getMode() == AddressMode.ABSOLUTE){
                 int memLocation = symbolTable.get(line.getOperand()).getLocation();
                 operand = "$" + String.format("%04x",memLocation);
