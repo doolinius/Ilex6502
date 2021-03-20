@@ -181,7 +181,23 @@ public class Assembler {
         }
     }
     
-    // Pass 1 of 2 for the assembly of the code
+    /*
+    Pass 1 of 2 for the assembly of the code
+    Loops through the file line by line
+    There are four types of lines so far
+        VARIABLE - variable assignment
+        LABEL - a line that is only a label for a memory location
+        INSTRUCTION - an assemly instruction or directive
+        COMMENTS - ignored or stripped
+    
+    The results of Pass 1 are
+        -Adding all variables to the symbol table
+        -Resolving references to variables
+        -Adding Labels to the symbol table
+        -Resolving all past references to Labels
+        -Creation of an ArrayList of SourceLine objects that represent the
+            lines of ASM source
+    */
     public void assembleP1(File file) throws Exception{
         try{ 
             BufferedReader br = new BufferedReader(new FileReader(file));
@@ -267,6 +283,7 @@ public class Assembler {
         StringBuilder outStr = new StringBuilder();
         for (SourceLine line: intermediateSourceLines){
             System.out.println("Pass2, assembling instruction " + line.getOperator() + " " + line.getOperand() + " " +  line.getMode().toString());
+            System.out.println("appending " + p2ProcessInstruction(line));
             outStr.append(p2ProcessInstruction(line));
         }
         //System.out.println(outStr.toString());
@@ -353,16 +370,25 @@ public class Assembler {
         // get operand
         String operand = line.getOperand();
         String oc = instructions.getOpCode(line.getOperator(), line.getMode());
-        if (isValidLabel(line.getOperand())){
+        // If the operand contains a Label, we need to resolve it
+        System.out.println("Checking for a valid label in the operand \"" + operand + "\"");
+        if (isValidLabel(operand)){
+            // 
             operand = symbolTable.get(line.getOperand()).getValue();
             System.out.println("P2 Process: got instruction operand " + operand);
             if (line.getMode() == AddressMode.RELATIVE){
+                /*
+                 Relative addressing mode has to resolve not to a particular memory address
+                    but an offset from -126-129. (signed byte)
+                
+                    These are for Branch instructions
+                */
                 System.out.println("Branch operand: " + operand);
                 String hexOperand = num2hex(operand, line.getMode().size());
                 System.out.println("Hex operand: " + hexOperand);
                 int opInt = Integer.parseInt(hexOperand,16);
                 System.out.println("Integer operand: " + opInt);
-                //byte operandByte = Byte.parseByte(operand, 16);
+                byte operandByte = Byte.parseByte(operand, 16);
                 int memLocation = symbolTable.get(line.getOperand()).getLocation();
                 int diff = memLocation - opInt; //  - memLocation;
                 byte diffByte = 0;
@@ -421,56 +447,134 @@ public class Assembler {
         //System.out.println("adding source line for " + operator + "," + operand + "," + mode.toString());
         if (mode == AddressMode.ACCUMULATOR){
             operand = "";
-        }
+        }//else if (mode == AddressMode.RELATIVE){
+        //    operand = "$" + operand.substring(3);
+        //}
         intermediateSourceLines.add(new SourceLine(operator,operand,mode,lc));
     }
     
+    /*
+    Pass 1 Instruction processing method
+    
+    */
     public int p1ProcessInstruction(String line) throws Exception {
+        // Example:  LDA $00
+        // removes the preceding and trailing whitespace from the instruction
         line = line.trim();
+        // Splits it into an instruction (operator) and an operand
         String instruction[] = line.split("\\s");
+        // The operator/instruction comes first
         String operator = instruction[0];
+        
+        // TODO: technically, I need to throw an Exception if instruction[]
+        //  has more than 2 parts
 
         Instruction op;
         //try {
+            // get the actual Instruction object for the mnemonic
             op = instructions.getOp(operator);
+            // TODO: throw Exception if op is null (invalid instruction)
             String operand;
 
             if (instruction.length > 1) {
+                // if it has an operand, get it
                 operand = instruction[1];
             } else {
                 operand = "";
             }
             String label = hasValidLabel(operand);
+            if (label == null){// if there is no label
+                //System.out.println("Instruction " + operator + " has NO label");
+                Pattern p = Pattern.compile("(#?(\\d{1,5}|\\$(\\d|[a-fA-F]){2,4}|%(0|1){8,16}))(,(X|x|Y|y))?");
+                Matcher m = p.matcher(operand);
+                if (m.matches()) {
+                    addSourceLine(operator, m.group(1), instructions.getMode(operator, operand),lc);
+                } else {
+                    addSourceLine(operator, operand, instructions.getMode(operator, operand),lc);
+                }
+                return (instructions.instructionSize(operator, operand));
+            }else{
+                Symbol s = symbolTable.get(label);
+                if (! instructions.isJumpOrBranch(operator)){ // is it a Variable Label?
+                    //System.out.println("label exists in symTab: " + s.getValue());
+                    String newOperand = operand.replace(label, s.getValue());
+                    // TODO: if the AddressMode is RELATIVE, this operand needs to change NOW
+                    addSourceLine(operator, s.getValue(), instructions.getMode(operator, newOperand),lc);
+                    return (instructions.instructionSize(operator, newOperand));
+                }else{ // It is not a variable (it is JMP, Branch or invalid)
+                    if (instructions.isJumpOrBranch(operator)){
+                        AddressMode m = instructions.isValidJump(operator,operand);
+                        if (m != null){// i.e., if it's a valid Jump
+                            if (s == null){ // If the label is in the symbol table
+                                // We need to add the label as UNDEFINED
+                                addLabel(operand,lc,SymType.UNDEFINED,lineNum,instructions.getOp(operator).getSize());
+                            }else{
+                                // If the Label is defined, change the operand to the value of the label. 
+                                operand = s.getValue();
+                            }
+                            addSourceLine(operator,operand,m,lc);
+                            return(instructions.getOp(operator).getSize());
+                        }else if (instructions.isValidBranch(operator, operand)){
+                            if (s == null){ // If the label is not in the symbol table
+                                // We need to add the label as UNDEFINED
+                                addLabel(operand,lc,SymType.UNDEFINED,lineNum,instructions.getOp(operator).getSize());
+                            }else{
+                                // If the Label is defined, change the operand to the value of the label. 
+                                System.out.println("Label " + operand + " found with value " + s.getValue());
+                                operand = s.getValue();
+                                // GET THE OFFSET FOR THE BRANCH
+                                short destAddr = Short.parseShort(operand.substring(1), 16);
+                                System.out.println("Destination Address: " + String.format("%02x", destAddr));
+                                System.out.println("Current lc: " + lc);
+                                System.out.println(destAddr + " - " + lc);
+                                byte diffByte = (byte)(destAddr - lc - 1);
+                                operand = "$" + String.format("%02x", diffByte);
+                                System.out.println("Final Branch Operand: " + operand);
+                            }
+                            addSourceLine(operator,operand,AddressMode.RELATIVE,lc);
+                            return(instructions.getOp(operator).getSize());
+                        }
+                    }else{
+                        throw new Exception("Line  " + lineNum + ": " + "invalid addressing mode for instruction " + operator);
+                    }
+                }
+            }
+            /*
             if (label != null) {// if there is a label in the instruction operand
                 //System.out.println("Instruction " + operator + " has a label " + label);
                 Symbol s = symbolTable.get(label);
-                if (s == null) {// if the label is NOT in the symbol table
+                if (s == null || instructions.isJumpOrBranch(operator)) {// if the label is NOT in the symbol table
                     //System.out.println("..... aaaaand it's NOT in the symbol table!!");
-                    if (instructions.isJumpOrBranch(operator)){// only Jump or Branch can have future label
+                    //if (instructions.isJumpOrBranch(operator)){// only Jump or Branch can have future label
                         AddressMode m = instructions.isValidJump(operator,operand);
                         if (m != null){// i.e., if it's a valid Jump
                             addLabel(operand,lc,SymType.UNDEFINED,lineNum,instructions.getOp(operator).getSize());
                             addSourceLine(operator,operand,m,lc);
                             return(instructions.getOp(operator).getSize());
                         }else if (instructions.isValidBranch(operator, operand)){
+                            // TODO
+                            // If the Branch is to a PAST reference, it can be calculated now
+                            System.out.println("P1: Processing Branch with operand " + operand);
                             addLabel(operand,lc,SymType.UNDEFINED,lineNum,instructions.getOp(operator).getSize());
                             addSourceLine(operator,operand,AddressMode.RELATIVE,lc);
                             return(instructions.getOp(operator).getSize());
                         }else{
                             throw new Exception("Line  " + lineNum + ": " + "invalid addressing mode for instruction " + operator);
                         }
-                    }else{// if it's an invalid FUTURE label
-                        throw new Exception("Line " + lineNum + ": " + "undefined symbol " + operand);
-                    }
-                } else { // if the label is FOUND in the symbol table
+                // if there is a symbol but it's not a JMP or Branch instruction
+                // This means the label would be a variable, which should be previously defined
+                } else if (s != null){ // if the label is FOUND in the symbol table
                     //System.out.println("label exists in symTab: " + s.getValue());
                     String newOperand = operand.replace(label, s.getValue());
+                    // TODO: if the AddressMode is RELATIVE, this operand needs to change NOW
                     addSourceLine(operator, s.getValue(), instructions.getMode(operator, newOperand),lc);
                     return (instructions.instructionSize(operator, newOperand));
+                }else{// if it's an invalid FUTURE label
+                    throw new Exception("Line " + lineNum + ": " + "undefined symbol " + operand);
                 }
-            } else { // if the operand doesn't contain a label
+            } else { // if the operand doesn't contain a label or an operand
                 //System.out.println("Instruction " + operator + " has NO label");
-                Pattern p = Pattern.compile("(#?(\\d{1,5}|\\$(\\d|[a-fA-F]){2,4}|%(0|1){8,16}))");
+                Pattern p = Pattern.compile("(#?(\\d{1,5}|\\$(\\d|[a-fA-F]){2,4}|%(0|1){8,16}))(,(X|x|Y|y))?");
                 Matcher m = p.matcher(operand);
                 if (m.matches()) {
                     addSourceLine(operator, m.group(1), instructions.getMode(operator, operand),lc);
@@ -479,10 +583,12 @@ public class Assembler {
                 }
                 return (instructions.instructionSize(operator, operand));
             }
+            */
        // } catch (Exception e) {
        //     System.err.println("Line " + lineNum + ":" + e.getMessage());
        //     return(0);
        // }
+        return 0;
 
     }
     

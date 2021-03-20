@@ -7,12 +7,15 @@ package ilex6502.assembler;
 /**
  *
  * @author jdoolin
+ * Represents a single line of ASM source
+ * Created in Pass1
+ * Processed in Pass2
  */
 public class SourceLine {
-    private String operator;
-    private String operand;
-    private AddressMode mode;
-    private int lc;
+    private String operator; // The instruction mnemonic as a string
+    private String operand;  // the operand as a string
+    private AddressMode mode; // Address Mode
+    private int lc; // ???
     
     public SourceLine(String operator, String operand, AddressMode mode, int lc){
         this.operator = operator;

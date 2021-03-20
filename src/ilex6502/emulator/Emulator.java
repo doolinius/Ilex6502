@@ -440,10 +440,14 @@ public class Emulator {
             carryFlag = 1;
         }
         */
-        byte t = (byte)(a - b);
+        short acc = byteToUnsigned(a);
+        short mem = byteToUnsigned(b);
+        byte t = (byte)(acc - byteToUnsigned(b));
+        System.out.println("Difference is " + t);
         setNegativeFlag(t);
         setZeroFlag(t);
-        carryFlag = (a >= b) ? 1:0;
+        System.out.println("Is " + acc + " >=  to " + mem);
+        carryFlag = (acc >= mem) ? 1:0;
     }
     
     public void setZeroFlag(byte test){
@@ -765,6 +769,7 @@ public class Emulator {
             case 0x75:
                 addr = (short)(rom[programCounter] + xRegister);
                 ADC(ram[addr]);
+                programCounter++;
                 break;
             case 0x76: // ROR zero page X
                 addr = (short)(rom[programCounter] + xRegister);
@@ -841,7 +846,8 @@ public class Emulator {
                 break;
             case 0x90: // BCC - branch if carry clear
                 if (getCarryFlag() == 0){
-                    programCounter = (short)(programCounter + rom[programCounter]);//byteToUnsigned(rom[programCounter]);
+                    short offset = rom[programCounter];
+                    programCounter = (short)(programCounter + offset);
                 }else{
                     programCounter++;
                 }
@@ -969,7 +975,9 @@ public class Emulator {
                 break;
             case 0xB0: // BCS - branch if carry set
                 if (getCarryFlag() != 0){
-                    programCounter = (short)(programCounter + rom[programCounter]);//byteToUnsigned(rom[programCounter]);
+                    short offset = rom[programCounter];
+                    programCounter = (short)(programCounter + offset);
+                    //programCounter = (short)(programCounter + rom[programCounter]);//byteToUnsigned(rom[programCounter]);
                 }else{
                     programCounter++;
                 }
@@ -1010,8 +1018,8 @@ public class Emulator {
                 overflowFlag = 0;
                 break;
             case 0xB9: // LDA - absolute Y
-                addr = resolveAbsoluteY(rom[programCounter++], rom[programCounter]);
-                accumulator = ram[addr];
+                byte value = resolveAbsoluteY(rom[programCounter++], rom[programCounter]);
+                accumulator = value; //ram[addr];
                 programCounter++;
                 setNegativeFlag(accumulator);
                 setZeroFlag(accumulator);
@@ -1090,8 +1098,11 @@ public class Emulator {
                 break;
             case 0xD0: // BNE - branch if Not Equal (zeroFlag is clear)
                 if (getZeroFlag() == 0){
-                    programCounter = (short)(programCounter + rom[programCounter]);//byteToUnsigned(rom[programCounter]);
+                    short offset = rom[programCounter];
+                    programCounter = (short)(programCounter + offset);//byteToUnsigned(rom[programCounter]);
+                    System.out.println("BNE: zeroFlag not set, taking branch to " + programCounter);
                 }else{
+                    System.out.println("BNE: zeroFlag is set, not taking branch");
                     programCounter++;
                 }
                 break;

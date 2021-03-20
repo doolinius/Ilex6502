@@ -4,10 +4,11 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
+            <file>file:/Volumes/Users/jdoolin/projects/java/Ilex6502/src/ilex6502/assembler/Assembler.java</file>
             <file>file:/Volumes/Users/jdoolin/projects/java/Ilex6502/src/ilex6502/emulator/Emulator.java</file>
-            <file>file:/Volumes/Users/jdoolin/projects/java/Ilex6502/src/ilex6502/Ilex6502.java</file>
+            <file>file:/Volumes/Users/jdoolin/projects/java/Ilex6502/src/ilex6502/assembler/Instructions.java</file>
+            <file>file:/Volumes/Users/jdoolin/projects/java/Ilex6502/src/ilex6502/MemoryWindow.java</file>
             <file>file:/Volumes/Users/jdoolin/projects/java/Ilex6502/src/ilex6502/RegisterPanel.java</file>
-            <file>file:/Volumes/Users/jdoolin/projects/java/Ilex6502/src/ilex6502/assembler/AddressMode.java</file>
             <file>file:/Volumes/Users/jdoolin/projects/java/Ilex6502/src/ilex6502/MainPanel.java</file>
             <file>file:/Volumes/Users/jdoolin/projects/java/Ilex6502/src/ilex6502/GUIEmulator.java</file>
         </group>

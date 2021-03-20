@@ -12,6 +12,6 @@ public enum SymType {
     LABEL,      // code label
     VARIABLE,   // label for memory location
     OPERAND,    // label of memory location or code
-    UNDEFINED,  // not sure why I have this
+    UNDEFINED,  // a symbol that has not yet been resolved in Pass 1
     MTDF // multiply defined
 }
