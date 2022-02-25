@@ -747,6 +747,9 @@ public class Emulator {
                 setZeroFlag(accumulator);
                 setNegativeFlag(accumulator);
                 break;
+            case 0x6C: // JMP Indirect (Must never use a vector beginning on the laste byte of a page)
+                // TODO: NOT DONE
+                break;
             case 0x6D:// ADC, absolute
                 ADC(resolveAbsolute(rom[programCounter++],rom[programCounter]));
                 programCounter++;
@@ -1091,7 +1094,7 @@ public class Emulator {
                 programCounter++;
                 ram[addr]--;
                 break;
-            case 0xCD: // CPY - compare Accumulator, absolute
+            case 0xCD: // CMP - compare Accumulator, absolute
                 addr = (short)(bytesToAddr(rom[programCounter++],rom[programCounter]));
                 programCounter++;
                 compare(accumulator, ram[addr]);
