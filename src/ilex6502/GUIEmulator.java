@@ -18,7 +18,7 @@ public class GUIEmulator extends Emulator{
 
     public GUIEmulator() {
         super();
-        screenPanel = new EmuScreen();
+        screenPanel = new EmuScreen(screenMemory);
         registerPanel = new RegisterPanel(this);
         memoryWindow = new MemoryWindow("Memory Contents", this);
         updateRegisterPanel();
@@ -56,7 +56,7 @@ public class GUIEmulator extends Emulator{
     /**
      * @return the screenPanel
      */
-    public EmuScreen getScreenPanel() {
+    public EmuScreen getScreen() {
         return screenPanel;
     }
 

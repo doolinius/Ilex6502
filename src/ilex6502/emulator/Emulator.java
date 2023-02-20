@@ -17,7 +17,7 @@ public class Emulator {
     private static OpCodes codes = new OpCodes();
     private final int STACK_START = 0x0100;
     private static byte[] ram = new byte[27648];// 0x0000 - 0x6C00 (exclusive)
-    private static byte[] screenMemory = new byte[1024];// - 0x6C00 - 7000
+    protected static byte[] screenMemory = new byte[1024];// - 0x6C00 - 7000
     private static byte[] stackMemory = new byte[4096]; // - 0x7000 - 0x8000
     private static byte[] rom = new byte[32768]; // - 0x8000 - 0xFFFF
     protected static byte accumulator;
@@ -66,6 +66,11 @@ public class Emulator {
         statusRegister = 0x20;
         zeroFlag = negativeFlag = overflowFlag = breakFlag = decimalFlag = carryFlag = 0;
         interruptFlag = 1;
+        
+        for (int i=0; i<1024; ++i){
+            screenMemory[i] = '\0';
+        }
+        
     }
     
     public void loadBinary(File f){
@@ -122,8 +127,8 @@ public class Emulator {
     
     // Reads and returns the byte stored in a memory address
     public static byte readMemory(short address){
-        return(ram[address]);
-        /*
+        //return(ram[address]);
+        
         if (address < 0x6C00){
             return(ram[address]);
         }else if(address < 0x7000){
@@ -133,7 +138,7 @@ public class Emulator {
         }else{
             return(rom[address-0x8000]);
         }
-        */
+        
     }
     
     // Returns the memory address based on Address Mode

@@ -34,7 +34,7 @@ public class Ilex6502{
         f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         f.setResizable(false);
         
-        f.setPreferredSize(new Dimension(1615,850));
+        f.setPreferredSize(new Dimension(1635,1000));
         
         MainPanel mainPanel = new MainPanel();
         //mainPanel.setLayout(new BorderLayout());

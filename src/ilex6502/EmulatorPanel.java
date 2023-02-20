@@ -26,19 +26,19 @@ public class EmulatorPanel extends JPanel{
     
     public EmulatorPanel(){
         emu = new GUIEmulator();
-        Dimension screenSize = new Dimension(975,615);
+        Dimension screenSize = new Dimension(990,690);
         setLayout(new BoxLayout(this,BoxLayout.Y_AXIS));
         
         
         setTheme(EmuTheme.ATARI_CLASSIC);
         //registers = new RegisterPanel();
         
-        JPanel foo = emu.getScreenPanel();
+        Canvas foo = emu.getScreen();
         if (foo == null){
             System.out.println("WTF");
         }
         
-        add(emu.getScreenPanel());
+        add(emu.getScreen());
         add(emu.getRegisterPanel());
         add(Box.createVerticalGlue());
         setPreferredSize(screenSize);
@@ -65,7 +65,7 @@ public class EmulatorPanel extends JPanel{
             repaint(); // calls getComponent().repaint(x, y, width, height)
             
         }
-
+       
         public void paint(Graphics g) {
             JTextComponent comp = getComponent();
             if (comp == null) {
@@ -119,7 +119,7 @@ public class EmulatorPanel extends JPanel{
      * @return the screen
      */
     public Canvas getScreen() {
-        return getEmu().getScreenPanel().getScreen();
+        return getEmu().getScreen();//.getScreen();
     }
 
     /**
